@@ -422,6 +422,12 @@ html,body{background:#07080b}
   #app:not(.kb){top:0!important;bottom:auto!important;height:var(--appH,100vh)!important}
   body{background:var(--appbg,#07080b)}
 }
+/* v13: телефон без клавиатуры — приложение ровно по краям экрана, без расчётов высоты в JS */
+@media (max-width:500px){
+  html,body{height:100%!important}
+  #app:not(.kb){position:fixed!important;top:0!important;bottom:0!important;left:0!important;right:0!important;height:auto!important;max-height:none!important}
+  #app nav{margin:0 8px calc(env(safe-area-inset-bottom) + 6px)!important}
+}
 
 /* ===== Сферы ===== */
 :root{--work:#8FA6BF;--life:#C9A27E}
@@ -1705,7 +1711,7 @@ function start(){
     const kb = typing && base - h > 120;
     app.classList.toggle('kb', kb);
     // iPhone-приложение с экрана «Домой» сообщает высоту экрана без строки статуса — берём реальную высоту экрана
-    const full = navigator.standalone ? Math.max(screen.height, window.innerHeight) : window.innerHeight;
+    const full = window.innerHeight;
     de.style.setProperty('--appH', (kb ? h : full)+'px');
     de.style.setProperty('--appTop', kb ? Math.round(vv.offsetTop)+'px' : '0px');
     if(!kb) window.scrollTo(0,0);
