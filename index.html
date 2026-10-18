@@ -450,6 +450,16 @@ html,body{background:#07080b}
 @media (max-width:899px){ nav{grid-template-columns:repeat(7,1fr)!important} nav button{font-size:9px!important} }
 @media (max-width:360px){ nav button{font-size:0!important} }
 @media (min-width:900px){ .spbar,.sfseg{max-width:520px} .sfcol{min-height:calc(100vh - 330px)} }
+/* v14: iOS 26, приложение с экрана «Домой» — система даёт странице экран короче на высоту строки статуса,
+   если сама страница ниже экрана (WebKit bug 301108). Делаем документ высотой с экран — iOS отдаёт полный экран. */
+@media (display-mode: standalone) and (max-width:500px){
+  html{position:static!important;height:auto!important;min-height:min(100lvh, calc(100% + env(safe-area-inset-top)))!important}
+  body{position:static!important;height:auto!important;min-height:inherit!important;overflow:hidden}
+  html:has(#app.kb), html:has(#app.kb) body{position:fixed!important;inset:0;height:100%!important;min-height:0!important}
+}
+html.sa:not(:has(#app.kb)){position:static!important;height:auto!important;min-height:min(100lvh, calc(100% + env(safe-area-inset-top)))!important}
+html.sa:not(:has(#app.kb)) body{position:static!important;height:auto!important;min-height:inherit!important;overflow:hidden}
+.diag{font-size:11px;color:var(--mut2);text-align:center;margin-top:10px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -1409,7 +1419,8 @@ function trackerSheet(){
     '<button class="opt" data-a="tgsetup">'+(S.tgLinked ? 'Перепривязать бота' : 'Подключить Telegram')+'</button>'+
     '<span class="lbl" style="margin-top:8px">Аккаунт</span>'+
     '<p class="meta" style="margin:0">Синхронизация: '+NETT[S.net]+'</p>'+
-    '<button class="ghost" data-a="logout">Выйти на этом устройстве</button></div>';
+    '<button class="ghost" data-a="logout">Выйти на этом устройстве</button>' +
+    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v14</div></div>';
 }
 const cardQuad = title => { const n = norm(title); return /срочно и важно/.test(n) ? 1 : /важно,? но не срочно|важно,? не срочно/.test(n) ? 2 : /срочно,? но не важно|делег/.test(n) ? 3 : /не срочно,? не важно/.test(n) ? 4 : 0; };
 const plural = (n, a, b, c) => { n = Math.abs(n) % 100; const k = n % 10; return n > 10 && n < 20 ? c : k > 1 && k < 5 ? b : k === 1 ? a : c; };
@@ -1728,6 +1739,7 @@ function start(){
   window.addEventListener('orientationchange', () => setTimeout(() => { base = vv.height; fit(); }, 400));
   fit();
 })();
+if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 if(AUTH.pass && AUTH.url) start(); else loginView();
 </script>
