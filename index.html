@@ -1067,6 +1067,9 @@ let toastTimer = null;
 function toast(text){ S.toast = text; clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; render(true); }, 3000); }
 function render(keepScroll){
   const st = keepScroll ? (app.querySelector('main')||{}).scrollTop : 0;
+  // лента чата прокручивается сама — запоминаем, где была, и была ли внизу
+  const oc = app.querySelector('main.chatmode .chat');
+  const cst = oc ? oc.scrollTop : 0, cAtBottom = oc ? (oc.scrollHeight - oc.scrollTop - oc.clientHeight < 80) : true;
   app.className = (S.theme === 'dopa' ? 'dopa' : '') + (app.classList.contains('kb') ? ' kb' : '');
   app.style.background = BG[S.theme];
   document.body.style.background = BG[S.theme]; document.documentElement.style.background = S.theme === 'dopa' ? '#080404' : '#07080b';
@@ -1079,8 +1082,13 @@ function render(keepScroll){
     (S.sheet ? viewSheet() : '') +
     (S.toast ? '<div class="toast" role="status">'+h(S.toast)+'</div>' : '');
   const main = app.querySelector('main');
-  if(S.tab === 'chat' && S.scrollChat){ chatBottom(); S.scrollChat = false; }
-  else if(keepScroll) main.scrollTop = st;
+  if(S.tab === 'chat' && S.scrollChat){ chatBottom(); requestAnimationFrame(chatBottom); S.scrollChat = false; }
+  else {
+    if(keepScroll) main.scrollTop = st;
+    // остались в чате после перерисовки — лента не прыгает наверх
+    const nc = app.querySelector('main.chatmode .chat');
+    if(nc && oc){ if(cAtBottom){ chatBottom(); requestAnimationFrame(chatBottom); } else nc.scrollTop = cst; }
+  }
   afterRender();
   const addt = document.getElementById('addt'); if(addt) addt.focus();
   const ta = document.getElementById('ci');
@@ -1420,7 +1428,7 @@ function trackerSheet(){
     '<span class="lbl" style="margin-top:8px">Аккаунт</span>'+
     '<p class="meta" style="margin:0">Синхронизация: '+NETT[S.net]+'</p>'+
     '<button class="ghost" data-a="logout">Выйти на этом устройстве</button>' +
-    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v14</div></div>';
+    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v15</div></div>';
 }
 const cardQuad = title => { const n = norm(title); return /срочно и важно/.test(n) ? 1 : /важно,? но не срочно|важно,? не срочно/.test(n) ? 2 : /срочно,? но не важно|делег/.test(n) ? 3 : /не срочно,? не важно/.test(n) ? 4 : 0; };
 const plural = (n, a, b, c) => { n = Math.abs(n) % 100; const k = n % 10; return n > 10 && n < 20 ? c : k > 1 && k < 5 ? b : k === 1 ? a : c; };
