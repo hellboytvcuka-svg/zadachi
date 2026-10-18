@@ -401,6 +401,49 @@ html,body{background:#07080b}
 .brow{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:7px 0 7px 16px;width:100%}
 .brow .tt{font-size:14px;font-weight:400!important}
 .brow.isdone .tt{text-decoration:line-through;color:var(--mut2)}
+
+/* v9: компактная форма новой задачи — «Добавить» всегда сверху, без прокрутки */
+.addsheet{gap:10px!important}
+.addhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.addhead .stitle{font-size:19px}
+.addgo{width:auto!important;height:42px!important;min-height:42px!important;padding:0 20px;flex:none}
+.addrow2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:8px}
+.addrow2 .inp{min-width:0}
+.qchips{display:flex;flex-wrap:wrap;gap:6px}
+.qchips label{position:relative}
+.qchips input{position:absolute;opacity:0;pointer-events:none}
+.qchips span{display:flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:18px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);font-size:13px;color:var(--mut);cursor:pointer;white-space:nowrap}
+.qchips input:checked+span{border-color:var(--acc);color:var(--ink);background:rgba(217,194,160,.10)}
+.cform textarea{white-space:nowrap;overflow-x:hidden;text-overflow:ellipsis}
+.cform textarea:not(:placeholder-shown){white-space:pre-wrap}
+/* v9: телефон — приложение и фон на всю высоту экрана, без чёрной полосы */
+@media (max-width:500px){
+  html,body{height:100lvh}
+  #app:not(.kb){top:0!important;bottom:auto!important;height:100lvh!important}
+  body{background:var(--appbg,#07080b)}
+}
+
+/* ===== Сферы ===== */
+:root{--work:#8FA6BF;--life:#C9A27E}
+.sptag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--mut);margin-right:6px}
+.sptag::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--spc)}
+.spbar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:22px!important;margin-bottom:10px}
+.spbar button{height:36px;border-radius:18px;font-size:13px;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:6px}
+.spbar button.on{background:rgba(255,255,255,.09);color:var(--ink);font-weight:600}
+.spbar .n,.sfseg .n{font-size:11px;opacity:.7}
+.sfseg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:24px!important;margin-bottom:12px}
+.sfseg button{height:42px;border-radius:20px;font-size:14px;color:var(--mut);display:flex;align-items:center;justify-content:center;gap:8px}
+.sfseg button.on{background:var(--acc);color:var(--onacc);font-weight:600}
+.sfcol{min-height:300px}
+.sfinbox{padding:4px 12px}
+.sfirow{display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)}
+.sfirow:first-child{border-top:0}
+.sft{flex:1;min-width:0;text-align:left;font-size:14px;line-height:1.3}
+.sfpick{flex:none;height:32px;padding:0 10px;border-radius:16px;border:1px solid var(--gb);font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
+.sfpick:hover{border-color:var(--acc);color:var(--ink)}
+@media (max-width:899px){ nav{grid-template-columns:repeat(7,1fr)!important} nav button{font-size:9px!important} }
+@media (max-width:360px){ nav button{font-size:0!important} }
+@media (min-width:900px){ .spbar,.sfseg{max-width:520px} .sfcol{min-height:calc(100vh - 330px)} }
 </style>
 </head>
 <body>
@@ -439,6 +482,7 @@ const I = {
   tMatrix:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
   tWeek:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 6h14M5 12h14M5 18h9"/></svg>',
   tCal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  tSf:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3.5" y="4" width="7.5" height="16" rx="2"/><rect x="13" y="4" width="7.5" height="16" rx="2"/></svg>',
   tGoals:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>',
   tArt:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l3 16M15 4l-3 16"/></svg>'
 };
@@ -641,6 +685,7 @@ let nid = 1;
 const T = (t,o={}) => Object.assign({id:uid('t'), t, imp:false, date:null, time:'', gid:'', done:false, pinned:false, urg:null}, o);
 const S = {
   tab:'matrix', theme:'calm', ctx:null, expandedQ:null, open:new Set(['d0']), cal:{y:TODAY.getFullYear(), m:TODAY.getMonth()}, sel:addD(0),
+  spf:(()=>{ try{ return localStorage.getItem('zd_spf') || 'all'; }catch(e){ return 'all'; } })(), sf:'work',
   sheet:null, editIn:null, scrollChat:true, formImg:'',
   tracker:{me:'Артём', available:[], status:'', last:null, busy:false},
   settings:{trOn:false, trCols:['Артём'], trIgnored:[], lastReview:'', u:0},
@@ -656,9 +701,19 @@ const BG = {
 // ===== общие куски =====
 const find = id => S.tasks.find(t => t.id === id);
 const findArt = id => S.arts.find(a => a.id === id);
+const SP = {work:{label:'Работа', c:'var(--work)'}, life:{label:'Личное', c:'var(--life)'}};
+const spTag = t => SP[t.sp] ? '<span class="sptag" style="--spc:'+SP[t.sp].c+'">'+(t.sp==='work'?'работа':'личное')+'</span>' : '';
+const spFromTag = tag => { const n = norm(tag||''); return /работ|рабоч|дело|бизнес|проект/.test(n) ? 'work' : /личн|личк|лично|дом|себе|здоров|семь/.test(n) ? 'life' : ''; };
+const VT = () => S.spf === 'all' ? S.tasks : S.tasks.filter(t => t.sp === S.spf);
+function spBar(){
+  const cnt = sp => S.tasks.filter(t => !t.done && (sp === 'all' || t.sp === sp)).length;
+  return '<div class="spbar glass">'+[['all','Все'],['work','Работа'],['life','Личное']].map(([k,l]) =>
+    '<button class="'+(S.spf===k?'on':'')+'" data-a="spf" data-v="'+k+'">'+(k!=='all'?'<span class="dot" style="background:'+SP[k].c+'"></span>':'')+l+' <span class="n">'+cnt(k)+'</span></button>').join('')+'</div>';
+}
 function chipsHtml(t){
   const c = chip(t.date); let out = '';
   if(t.pinned) out += '<span class="pinned-ic">'+I.pin+'</span>';
+  out += spTag(t);
   if(t.src) out += '<span class="srctag">трекер</span>';
   if(c) out += '<span class="'+(c.late && !t.done ? 'late' : '')+'">'+h(c.text)+(t.time ? ' · '+h(t.time) : '')+'</span>';
   return out ? '<span class="chips">'+out+'</span>' : '';
@@ -730,7 +785,7 @@ function viewChat(){
     const where = [c ? c.text : 'без даты', t.time, tg(t)].filter(Boolean).join(' · ');
     html += '<div class="tcard glass '+(t.done?'isdone':'')+'"><span class="tt">'+h(t.t)+'</span>'+
       '<div class="where"><span class="dot" style="background:'+qc(q)+'"></span><b style="font-weight:600">'+Q[q].label+'</b></div>'+
-      '<span class="meta '+(c&&c.late&&!t.done?'late':'')+'">'+h(where)+'</span>';
+      '<span class="meta '+(c&&c.late&&!t.done?'late':'')+'">'+spTag(t)+h(where)+'</span>';
     if(S.editIn === t.id){
       html += '<div class="grid2" style="margin-top:4px">'+[1,2,3,4].map(n => '<button class="opt '+(n===q?'on':'')+'" data-a="setq" data-v="'+t.id+':'+n+'" data-closeedit="1"><span class="dot" style="background:'+qc(n)+'"></span>'+Q[n].label+'</button>').join('')+'</div>';
     } else {
@@ -738,14 +793,14 @@ function viewChat(){
     }
     html += '</div>';
   }
-  html += '</div><form class="cform glass" id="cf"><label for="ci" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Сообщение</label><textarea id="ci" rows="1" placeholder="Задачи, можно списком. Отправить — кнопкой ↑"></textarea><button class="round" type="submit" aria-label="Отправить">'+I.send+'</button></form>';
+  html += '</div><form class="cform glass" id="cf"><label for="ci" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Сообщение</label><textarea id="ci" rows="1" placeholder="Задачи — можно списком"></textarea><button class="round" type="submit" aria-label="Отправить">'+I.send+'</button></form>';
   return html;
 }
 
 function viewMatrix(){
-  let html = ctxStrip() + '<div class="matrix">';
+  let html = ctxStrip() + spBar() + '<div class="matrix">';
   for(const n of [1,2,3,4]){
-    const list = S.tasks.filter(t => quad(t) === n).sort(byRank);
+    const list = VT().filter(t => quad(t) === n).sort(byRank);
     const open = S.expandedQ === n;
     const shown = open ? list : list.slice(0,5);
     const left = list.filter(t => !t.done).length;
@@ -779,23 +834,23 @@ function dayBlock(key, num, name, sub, list, kind){
     html += '<div class="dlist">';
     for(const t of list){
       const meta = [t.time, kind==='late' ? chip(t.date).text : '', tg(t)].filter(Boolean).join(' · ');
-      html += '<div class="wrow '+(t.done?'isdone':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta?'<span class="meta">'+h(meta)+'</span>':'')+'</button><span class="dot" style="background:'+qc(quad(t))+'"></span></div>';
+      html += '<div class="wrow '+(t.done?'isdone':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta||t.sp?'<span class="meta">'+spTag(t)+h(meta)+'</span>':'')+'</button><span class="dot" style="background:'+qc(quad(t))+'"></span></div>';
     }
     html += '</div>';
   }
   return html + '</section>';
 }
 function viewWeek(){
-  let html = ctxStrip() + '<div class="week">';
-  const late = S.tasks.filter(t => t.date && diff(t.date) < 0 && !t.done);
+  let html = ctxStrip() + spBar() + '<div class="week">';
+  const late = VT().filter(t => t.date && diff(t.date) < 0 && !t.done);
   if(late.length) html += dayBlock('late', I.alert, 'Просрочено', '', late, 'late');
   for(let i=0;i<7;i++){
     const d = addD(i), dt = pd(d);
     const name = i===0 ? 'Сегодня' : i===1 ? 'Завтра' : WDF[dt.getDay()];
     const sub = (i<2 ? WDF[dt.getDay()].toLowerCase()+', ' : '') + dt.getDate()+' '+MON[dt.getMonth()];
-    html += dayBlock('d'+i, dt.getDate(), name, sub, S.tasks.filter(t => t.date === d), i===0?'today':'');
+    html += dayBlock('d'+i, dt.getDate(), name, sub, VT().filter(t => t.date === d), i===0?'today':'');
   }
-  html += dayBlock('none','—','Без даты','',S.tasks.filter(t => !t.date),'');
+  html += dayBlock('none','—','Без даты','',VT().filter(t => !t.date),'');
   return html + '</div>';
 }
 
@@ -804,23 +859,23 @@ function viewCal(){
   const first = new Date(y,m,1), off = (first.getDay()+6)%7;
   const dim = new Date(y,m+1,0).getDate();
   const cells = Math.ceil((off+dim)/7)*7;
-  let html = ctxStrip() + '<div class="glass"><div class="calhead"><button class="navb" data-a="calprev" aria-label="Предыдущий месяц">'+I.left+'</button><b>'+MONF[m]+' '+y+'</b><button class="navb" data-a="calnext" aria-label="Следующий месяц">'+I.right+'</button></div><div class="cal">';
+  let html = ctxStrip() + spBar() + '<div class="glass"><div class="calhead"><button class="navb" data-a="calprev" aria-label="Предыдущий месяц">'+I.left+'</button><b>'+MONF[m]+' '+y+'</b><button class="navb" data-a="calnext" aria-label="Следующий месяц">'+I.right+'</button></div><div class="cal">';
   ['пн','вт','ср','чт','пт','сб','вс'].forEach(w => html += '<div class="wdn">'+w+'</div>');
   for(let i=0;i<cells;i++){
     const d = new Date(y,m,1-off+i), k = iso(d);
-    const ts = S.tasks.filter(t => t.date === k);
+    const ts = VT().filter(t => t.date === k);
     const cls = ['cell', d.getMonth()!==m?'out':'', k===iso(TODAY)?'today':'', k===S.sel?'sel':''].join(' ');
     html += '<button class="'+cls+'" data-a="sel" data-v="'+k+'"><span>'+d.getDate()+'</span><span class="cdots">'+
       ts.slice(0,4).map(t => '<i style="background:'+qc(quad(t))+';opacity:'+(t.done?.3:1)+'"></i>').join('')+'</span></button>';
   }
   html += '</div></div>';
   const sd = pd(S.sel);
-  const list = S.tasks.filter(t => t.date === S.sel).sort((a,b) => (a.done-b.done)||(quad(a)-quad(b)));
+  const list = VT().filter(t => t.date === S.sel).sort((a,b) => (a.done-b.done)||(quad(a)-quad(b)));
   html += '<div class="sect" style="display:flex;align-items:center;justify-content:space-between">'+WDF[sd.getDay()]+', '+sd.getDate()+' '+MON[sd.getMonth()]+'<button class="addpill glass" data-a="addtask" data-v="d'+S.sel+'">'+I.plus+'Задача</button></div><div class="glass" style="padding:0 14px">';
   if(!list.length) html += '<div class="empty" style="padding:14px 0">Свободный день</div>';
   list.forEach((t,i) => {
     const meta = [t.time, tg(t)].filter(Boolean).join(' · ');
-    html += '<div class="wrow '+(t.done?'isdone':'')+'" style="'+(i===0?'border-top:0':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta?'<span class="meta">'+h(meta)+'</span>':'')+'</button><span class="dot" style="background:'+qc(quad(t))+'"></span></div>';
+    html += '<div class="wrow '+(t.done?'isdone':'')+'" style="'+(i===0?'border-top:0':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta||t.sp?'<span class="meta">'+spTag(t)+h(meta)+'</span>':'')+'</button><span class="dot" style="background:'+qc(quad(t))+'"></span></div>';
   });
   return html + '</div>';
 }
@@ -842,6 +897,24 @@ const GTABS = [['month','Этот месяц'],['q','3 месяца'],['year','�
 const QMON = (() => { const m0 = QN*3; return MON[m0]+' — '+MON[m0+2]; })();
 const GSUB = {month: MONF[TODAY.getMonth()]+' '+TODAY.getFullYear(), q: QMON+' '+TODAY.getFullYear(), year: 'весь '+TODAY.getFullYear()+' год'};
 const GADD = {month:'Цель на месяц', q:'Цель на 3 месяца', year:'Цель на год'};
+function viewSf(){
+  const sp = S.sf || 'work';
+  const list = S.tasks.filter(t => t.sp === sp);
+  const cnt = k => S.tasks.filter(t => t.sp === k && !t.done).length;
+  const col = (imp, label) => {
+    const l = list.filter(t => !!t.imp === imp).sort((a,b) => (a.done-b.done) || byRank(a,b));
+    return '<section class="quad sfcol glass" data-imp="'+(imp?1:0)+'"><div class="qhead"><span class="dot" style="background:'+(imp?'var(--acc)':'var(--mut2)')+'"></span><h2>'+label+'</h2><span class="n">'+l.filter(t=>!t.done).length+'</span></div>'+
+      (l.length ? '' : '<div class="empty">Перетащи сюда</div>')+
+      l.map(t => '<div class="mrow '+(t.done?'isdone':'')+'" data-id="'+t.id+'">'+chk(t)+'<button class="mt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+chipsHtml(Object.assign({}, t, {sp:''}))+'</button></div>').join('')+
+      '<button class="addrow" data-a="addtask" data-v="s'+sp+(imp?1:0)+'">'+I.plus+'Добавить</button></section>';
+  };
+  const none = S.tasks.filter(t => !t.sp && !t.done);
+  return '<div class="sfseg glass">'+['work','life'].map(k => '<button class="'+(sp===k?'on':'')+'" data-a="sf" data-v="'+k+'"><span class="dot" style="background:'+SP[k].c+'"></span>'+SP[k].label+' <span class="n">'+cnt(k)+'</span></button>').join('')+'</div>'+
+    '<div class="matrix">'+col(true,'Важно')+col(false,'Не важно')+'</div>'+
+    '<p class="hint">Перетащи задачу в другую колонку — в Матрице она тоже станет важной или неважной.</p>'+
+    (none.length ? '<div class="sect" style="display:flex;justify-content:space-between"><span>Без раздела</span><span>'+none.length+'</span></div><div class="glass sfinbox">'+
+      none.map(t => '<div class="sfirow"><button class="sft" data-a="open" data-v="'+t.id+'">'+h(t.t)+'</button><button class="sfpick" data-a="setsp" data-v="'+t.id+':work"><span class="dot" style="background:var(--work)"></span>Работа</button><button class="sfpick" data-a="setsp" data-v="'+t.id+':life"><span class="dot" style="background:var(--life)"></span>Личное</button></div>').join('')+'</div>' : '');
+}
 function viewGoals(){
   const lv = S.gtab || 'month';
   let html = '<div class="gtabs glass">'+GTABS.map(([k,l]) => '<button class="'+(k===lv?'on':'')+'" data-a="gtab" data-v="'+k+'">'+l+'</button>').join('')+'</div>'+
@@ -923,7 +996,8 @@ function taskSheet(t){
     [1,2,3,4].map(n => '<button class="opt '+(n===q?'on':'')+'" data-a="setq" data-v="'+t.id+':'+n+'"><span class="dot" style="background:'+qc(n)+'"></span>'+Q[n].label+'</button>').join('')+
     '</div><span class="lbl">Срок</span><div class="grid4">'+
     dateOpts.map(([l,v]) => '<button class="opt" data-a="date" data-v="'+t.id+':'+v+'">'+l+'</button>').join('')+
-    '</div>'+field('Цель','<select class="inp" id="tgoal" data-tid="'+t.id+'">'+goalOptions(t.gid)+'</select>')+
+    '</div><span class="lbl">Сфера</span><div class="grid2">'+['work','life'].map(k => '<button class="opt '+(t.sp===k?'on':'')+'" data-a="setsp" data-v="'+t.id+':'+k+'"><span class="dot" style="background:'+SP[k].c+'"></span>'+SP[k].label+'</button>').join('')+'</div>'+
+    field('Цель','<select class="inp" id="tgoal" data-tid="'+t.id+'">'+goalOptions(t.gid)+'</select>')+
     '<button class="ghost" data-a="del" data-v="'+t.id+'">Удалить задачу</button></div>';
 }
 function artSheet(a){
@@ -968,9 +1042,9 @@ function viewSheet(){
 }
 
 // ===== рендер =====
-const TITLES = {chat:'Чат', matrix:'Матрица', week:'Неделя', cal:'Календарь', goals:'Цели', art:'Артефакты'};
-const TABS = [['matrix','Матрица',I.tMatrix],['chat','Чат',I.tChat],['week','Неделя',I.tWeek],['cal','Календарь',I.tCal],['goals','Цели',I.tGoals],['art','Артефакты',I.tArt]];
-const VIEWS = {chat:viewChat, matrix:viewMatrix, week:viewWeek, cal:viewCal, goals:viewGoals, art:viewArt};
+const TITLES = {chat:'Чат', matrix:'Матрица', week:'Неделя', cal:'Календарь', sf:'Сферы', goals:'Цели', art:'Артефакты'};
+const TABS = [['matrix','Матрица',I.tMatrix],['chat','Чат',I.tChat],['week','Неделя',I.tWeek],['cal','Календарь',I.tCal],['sf','Сферы',I.tSf],['goals','Цели',I.tGoals],['art','Артефакты',I.tArt]];
+const VIEWS = {sf:viewSf, chat:viewChat, matrix:viewMatrix, week:viewWeek, cal:viewCal, goals:viewGoals, art:viewArt};
 const app = document.getElementById('app');
 function chatBottom(){ const c = app.querySelector('main.chatmode .chat'); if(c) c.scrollTop = c.scrollHeight; const m = app.querySelector('main'); if(m && !c) m.scrollTop = m.scrollHeight; }
 let toastTimer = null;
@@ -979,6 +1053,7 @@ function render(keepScroll){
   const st = keepScroll ? (app.querySelector('main')||{}).scrollTop : 0;
   app.className = (S.theme === 'dopa' ? 'dopa' : '') + (app.classList.contains('kb') ? ' kb' : '');
   app.style.background = BG[S.theme];
+  document.body.style.background = BG[S.theme]; document.documentElement.style.background = S.theme === 'dopa' ? '#080404' : '#07080b';
   app.innerHTML =
     '<header class="top"><div class="hd"><span class="date">'+WDF[TODAY.getDay()]+', '+TODAY.getDate()+' '+MON[TODAY.getMonth()]+' <i class="net net-'+S.net+'" title="'+NETT[S.net]+'"></i></span><h1>'+TITLES[S.tab]+'</h1></div>'+
     '<button class="pill glass" data-a="trackeropen" aria-label="Настройки" style="margin-right:8px">'+I.gear+'</button>'+
@@ -1032,7 +1107,8 @@ function send(text){
     const auto = parse(it.text);
     const t = T(it.text[0].toUpperCase()+it.text.slice(1), auto);
     if(it.date){ t.date = it.date; if(!it.q) t.imp = true; }
-    if(it.tag) t.tag = it.tag;
+    if(it.tag){ t.tag = it.tag; t.sp = spFromTag(it.tag); }
+    if(!t.sp && S.spf !== 'all') t.sp = S.spf;
     if(it.q){ setQ(t, it.q); delete t.manual; t.qfix = 1; }
     S.tasks.push(t); made.push(t); openTexts.add(lpNorm(it.text));
     forAi.push({kind:'task', id:t.id, text:it.text});
@@ -1061,7 +1137,10 @@ app.addEventListener('click', e => {
     case 'close': S.sheet = null; break;
     case 'tab': S.tab = v; S.sheet = null; keep = false; if(v==='chat') S.scrollChat = true; break;
     case 'trackeropen': S.sheet = {type:'tracker'}; refreshTgStatus(); break;
-    case 'addtask': S.sheet = v[0] === 'q' ? {type:'add', q:v.slice(1), date:''} : {type:'add', q:'auto', date:v.slice(1)}; break;
+    case 'addtask': S.sheet = v[0] === 'q' ? {type:'add', q:v.slice(1), date:'', sp:S.spf!=='all'?S.spf:''} : v[0] === 's' ? {type:'add', q:'auto', date:'', sp:v.slice(1,5), imp:v.slice(5)==='1'} : {type:'add', q:'auto', date:v.slice(1), sp:S.spf!=='all'?S.spf:''}; break;
+    case 'spf': S.spf = v; try{ localStorage.setItem('zd_spf', v); }catch(e){} break;
+    case 'sf': S.sf = v; break;
+    case 'setsp': { const x = find(id); if(x){ x.sp = x.sp === arg ? '' : arg; } break; }
     case 'trackercol': { const c = el.dataset.v, cols = S.settings.trCols; const i = cols.indexOf(c); i >= 0 ? cols.splice(i,1) : cols.push(c); break; }
     case 'trackersync': S.settings.trOn = true; syncTracker(true); break;
     case 'troff': S.settings.trOn = false; toast('Трекер отключён'); break;
@@ -1134,6 +1213,8 @@ app.addEventListener('submit', e => {
     const text = val('t'), auto = parse(text);
     const t = T(text[0].toUpperCase()+text.slice(1), Object.assign(auto, {date: val('date') || auto.date || null, time: val('time') || auto.time}));
     if(val('q') !== 'auto') setQ(t, +val('q'));
+    else if(S.sheet && S.sheet.imp !== undefined){ t.imp = !!S.sheet.imp; t.qfix = 1; }
+    t.sp = val('sp') || (S.sheet && S.sheet.sp) || '';
     S.tasks.push(t);
     if(t.date) S.open.add('d'+diff(t.date));
     S.sheet = null; toast('Добавлено: '+Q[quad(t)].label.toLowerCase()); render(true); return;
@@ -1199,6 +1280,7 @@ function moveDrag(x, y){
   const r = app.getBoundingClientRect();
   drag.gh.style.left = (x - r.left - 40)+'px'; drag.gh.style.top = (y - r.top - 34)+'px';
   const el = document.elementFromPoint(x, y), q = el && el.closest('.quad');
+  drag.imp = q && q.dataset.imp !== undefined ? q.dataset.imp === '1' : null;
   app.querySelectorAll('.quad.drop').forEach(n => { if(n !== q) n.classList.remove('drop'); });
   if(q) q.classList.add('drop');
   drag.q = q ? +q.dataset.q : null;
@@ -1222,7 +1304,8 @@ function endDrag(drop){
   if(drag.active){
     dragEnd = Date.now(); drag.gh.remove();
     const t = find(drag.id);
-    if(drop && drag.q && t && drag.q !== quad(t)) setQ(t, drag.q);
+    if(drop && t && drag.imp !== null && drag.imp !== undefined && drag.imp !== !!t.imp){ const u = quad(t) === 1 || quad(t) === 3; setQ(t, drag.imp ? (u ? 1 : 2) : (u ? 3 : 4)); }
+    else if(drop && drag.q && t && drag.q !== quad(t)) setQ(t, drag.q);
     drag = null; render(true); return;
   }
   drag = null;
@@ -1290,15 +1373,17 @@ function batchCard(m){
 
 // ===== быстрое добавление задачи =====
 function addSheet(o){
-  const qopts = [['auto','Авто'],['1',Q[1].label],['2',Q[2].label],['3',Q[3].label],['4',Q[4].label]];
+  const qopts = [['auto','Авто'],['1','Срочно·важно'],['2','Важно'],['3','Делегировать'],['4','Потом']];
   const dl = o.date ? (()=>{ const c = chip(o.date); return c ? c.text : o.date; })() : '';
-  return '<form class="sheet" id="addform" data-a="noop" novalidate><div class="grab"></div>'+
-    '<div class="stitle">Новая задача'+(o.q !== 'auto' ? '<span class="meta" style="display:block;margin-top:4px">в «'+Q[o.q].label+'»</span>' : dl ? '<span class="meta" style="display:block;margin-top:4px">на '+h(dl)+'</span>' : '')+'</div>'+
-    field('Что сделать','<input class="inp" id="addt" name="t" autocomplete="off" placeholder="Например: созвон с клиентом">')+
-    '<div class="grid2">'+field('Дата','<input class="inp" type="date" name="date" value="'+h(o.date||'')+'">')+field('Время','<input class="inp" type="time" name="time">')+'</div>'+
-    field('Квадрант','<div class="seg" style="grid-template-columns:1fr 1fr">'+qopts.map(([v,l],i) => '<label'+(i===0?' style="grid-column:1/-1"':'')+'><input type="radio" name="q" value="'+v+'"'+(v===String(o.q)?' checked':'')+'><span>'+(v!=='auto'?'<i class="dot" style="background:'+qc(+v)+';margin-right:7px"></i>':'')+l+'</span></label>').join('')+'</div>')+
-    '<p class="meta" style="margin:-4px 0 0">«Авто» — разложу сам по сроку и целям.</p>'+
-    '<button class="primary" type="submit">Добавить</button></form>';
+  const sub = o.q !== 'auto' ? 'в «'+Q[o.q].label+'»' : dl ? 'на '+dl : '';
+  return '<form class="sheet addsheet" id="addform" data-a="noop" novalidate>'+
+    '<div class="addhead"><div><div class="stitle">Новая задача</div>'+(sub?'<span class="meta">'+h(sub)+'</span>':'')+'</div>'+
+    '<button class="primary addgo" type="submit">Добавить</button></div>'+
+    '<input class="inp" id="addt" name="t" autocomplete="off" enterkeyhint="done" placeholder="Что сделать" aria-label="Что сделать">'+
+    '<div class="addrow2"><input class="inp" type="date" name="date" aria-label="Дата" value="'+h(o.date||'')+'"><input class="inp" type="time" name="time" aria-label="Время"></div>'+
+    '<div class="qchips">'+[['work','Работа'],['life','Личное']].map(([k,l]) => '<label><input type="radio" name="sp" value="'+k+'"'+(o.sp===k?' checked':'')+'><span><i class="dot" style="background:'+SP[k].c+'"></i>'+l+'</span></label>').join('')+'</div>'+
+    '<div class="qchips">'+qopts.map(([v,l]) => '<label><input type="radio" name="q" value="'+v+'"'+(v===String(o.q)?' checked':'')+'><span>'+(v!=='auto'?'<i class="dot" style="background:'+qc(+v)+'"></i>':'')+l+'</span></label>').join('')+'</div>'+
+    '</form>';
 }
 
 // ===== настройки: трекер команды и Telegram =====
@@ -1342,6 +1427,7 @@ async function syncTracker(manual){
           const auto = parse(it.text);
           const t = T(it.text, Object.assign(auto, {date: it.deadline || auto.date, src, col: col.name, from: col.name+' · '+card.title}));
           if(q) setQ(t, q);
+          t.sp = 'work';
           S.tasks.push(t); fresh.push(t);
         }
       }
@@ -1512,6 +1598,7 @@ async function aiRefine(items){
         if(r.date && !t.date) t.date = r.date;
         if(r.time) t.time = r.time;
         if(r.goal_id && goalById(r.goal_id)){ t.gid = r.goal_id; if(!t.qfix) t.imp = true; }
+        if(!t.sp && (r.sphere === 'work' || r.sphere === 'life')) t.sp = r.sphere;
         t.ai = 1; changed = true;
       } else {
         const g = goalById(it.id); if(!g || g.manual) return;
