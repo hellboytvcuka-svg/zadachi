@@ -395,6 +395,12 @@ html,body{background:#07080b}
   .sheet > *{flex-shrink:0}
   .sheet .primary{min-height:48px}
 }
+
+.batch{width:min(560px,92%)!important;gap:10px}
+.bq{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line);padding-top:8px}
+.brow{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;padding:7px 0 7px 16px;width:100%}
+.brow .tt{font-size:14px;font-weight:400!important}
+.brow.isdone .tt{text-decoration:line-through;color:var(--mut2)}
 </style>
 </head>
 <body>
@@ -552,6 +558,84 @@ function goalFromText(line){
   return g;
 }
 
+// ===== разбор списка задач в «твоём» формате (одинаковый в приложении и в боте) =====
+// сегодня:            → дата для следующих строк
+// работа: / личка:    → раздел (тег)
+// срочно и важно:     → квадрант для следующих строк (ИИ его не меняет)
+// - задача ✅          → уже сделано, пропускаем
+// «…, срочно и важно:» в конце строки → задача + новый заголовок
+function lpNorm(s){ return String(s).toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim(); }
+function lpQuad(h){
+  h = lpNorm(h);
+  if(/не\s*срочн\S*,?\s*(и\s*)?не\s*важн|не\s*важн\S*,?\s*(и\s*)?не\s*срочн/.test(h)) return 4;
+  if(/важн\S*,?\s*(но\s*)?не\s*срочн/.test(h)) return 2;
+  if(/срочн\S*,?\s*(но\s*)?не\s*важн|делегир/.test(h)) return 3;
+  if(/срочн\S*,?\s*(и\s*)?важн|важн\S*,?\s*(и\s*)?срочн/.test(h)) return 1;
+  return 0;
+}
+const LP_WD = [[/понедельн/,1],[/вторник/,2],[/сред[ауы]/,3],[/четверг/,4],[/пятниц/,5],[/суббот/,6],[/воскресень/,0]];
+function lpDate(h, todayISO, todayWd){
+  h = lpNorm(h).replace(/^на\s+/,'').replace(/^в(о)?\s+/,'');
+  const add = n => { const d = new Date(todayISO+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
+  if(/^сегодня$/.test(h)) return add(0);
+  if(/^послезавтра$/.test(h)) return add(2);
+  if(/^завтра$/.test(h)) return add(1);
+  const w = LP_WD.find(x => x[0].test(h) && h.split(' ').length <= 2);
+  if(w){ let n = (w[1] - todayWd + 7) % 7; if(n === 0) n = 7; return add(n); }
+  return null;
+}
+const LP_BULLET = /^\s*(?:[-–—•*·▪●]+|\d{1,2}[.)])\s*/;
+const LP_DONE = /\s*(✅|✔️?|☑️?|\[x\])\s*$/i;
+function parseList(text, todayISO, todayWd){
+  // «1) а 2) б» в одной строке → отдельные строки
+  const raw = String(text).replace(/\r/g,'').split('\n')
+    .flatMap(l => l.split(/\s+(?=\d{1,2}[.)]\s)/))
+    .flatMap(l => l.split(/;\s*/));
+  const out = []; let q = 0, date = null, tag = '';
+  const header = h => {
+    const hq = lpQuad(h), hd = lpDate(h, todayISO, todayWd);
+    if(hq){ q = hq; date = null; tag = ''; return true; }
+    if(hd){ date = hd; return true; }
+    const n = lpNorm(h);
+    if(n && n.split(' ').length <= 3 && !/\d/.test(n)){ tag = n; return true; }
+    return false;
+  };
+  for(let line of raw){
+    let l = line.trim(); if(!l) continue;
+    const isBullet = LP_BULLET.test(l);
+    l = l.replace(LP_BULLET, '').trim(); if(!l) continue;
+    // «задача, срочно и важно:» — задача + заголовок в конце
+    const tail = l.match(/^(.*\S)\s*[,;]\s*([^,;:]{3,40}):\s*$/);
+    if(tail && (lpQuad(tail[2]) || lpDate(tail[2], todayISO, todayWd))){
+      pushItem(tail[1]); header(tail[2]); continue;
+    }
+    // «заголовок:» или «заголовок: задача»
+    const hm = l.match(/^([^:]{2,40}):\s*(.*)$/);
+    if(hm && !/^цель/.test(lpNorm(hm[1])) && (!isBullet || lpQuad(hm[1]) || lpDate(hm[1], todayISO, todayWd))){
+      if(header(hm[1])){ if(hm[2].trim()) pushItem(hm[2]); continue; }
+    }
+    // строка без двоеточия, но целиком заголовок («срочно и важно», «сегодня»)
+    if(!isBullet && (lpQuad(l) && lpNorm(l).split(' ').length <= 5 || lpDate(l, todayISO, todayWd))){ header(l); continue; }
+    pushItem(l);
+  }
+  function pushItem(t){
+    t = String(t).trim();
+    const done = LP_DONE.test(t);
+    t = t.replace(LP_DONE, '').replace(/\s+/g,' ').trim();
+    if(!t) return;
+    if(/^цель(\s|:|$)/i.test(t)){ out.push({kind:'goal', text:t}); return; }
+    out.push({kind:'task', text:t, q, date, tag, done});
+  }
+  // одинаковые строки в одном сообщении — одна задача
+  const seen = new Map();
+  return out.filter(it => {
+    if(it.kind !== 'task') return true;
+    const k = lpNorm(it.text), prev = seen.get(k);
+    if(prev){ if(it.q && !prev.q) prev.q = it.q; if(it.date && !prev.date) prev.date = it.date; prev.done = prev.done && it.done; return false; }
+    seen.set(k, it); return true;
+  });
+}
+
 // ===== данные =====
 let nid = 1;
 const T = (t,o={}) => Object.assign({id:uid('t'), t, imp:false, date:null, time:'', gid:'', done:false, pinned:false, urg:null}, o);
@@ -636,6 +720,7 @@ function viewChat(){
   for(const m of S.chat){
     if(m.from === 'me'){ html += '<div class="msg me">'+h(m.text)+'</div>'; continue; }
     if(m.text){ html += '<div class="msg bot glass">'+h(m.text)+'</div>'; continue; }
+    if(m.batch){ html += batchCard(m); continue; }
     if(m.artq){ html += reviewArtCard(findArt(m.artq)); continue; }
     if(m.gstep){ html += reviewStepCard(m); continue; }
     if(m.goal){ const g = goalById(m.goal); html += g ? goalCard(g) : '<div class="msg bot glass" style="color:var(--mut)">Цель удалена</div>'; continue; }
@@ -653,7 +738,7 @@ function viewChat(){
     }
     html += '</div>';
   }
-  html += '</div><form class="cform glass" id="cf"><label for="ci" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Сообщение</label><textarea id="ci" rows="1" placeholder="Задача или «цель на месяц: …»"></textarea><button class="round" type="submit" aria-label="Отправить">'+I.send+'</button></form>';
+  html += '</div><form class="cform glass" id="cf"><label for="ci" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Сообщение</label><textarea id="ci" rows="1" placeholder="Задачи, можно списком. Отправить — кнопкой ↑"></textarea><button class="round" type="submit" aria-label="Отправить">'+I.send+'</button></form>';
   return html;
 }
 
@@ -910,9 +995,8 @@ function render(keepScroll){
   const ta = document.getElementById('ci');
   if(ta){
     // как в Telegram: на телефоне Enter = новая строка, отправка только кнопкой; на компьютере Enter = отправить, Shift+Enter = новая строка
-    const touch = window.matchMedia('(pointer:coarse)').matches;
-    ta.setAttribute('enterkeyhint', touch ? 'enter' : 'send');
-    ta.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && !touch && !e.isComposing){ e.preventDefault(); ta.form.requestSubmit(); } });
+    ta.setAttribute('enterkeyhint', 'enter');
+    ta.addEventListener('keydown', e => { if(e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing){ e.preventDefault(); ta.form.requestSubmit(); } });
     ta.addEventListener('input', () => { ta.style.height = '42px'; ta.style.height = Math.min(ta.scrollHeight,140)+'px'; });
   }
 }
@@ -933,18 +1017,32 @@ function send(text){
     const l = S.tasks.filter(t => t.date && diff(t.date) < 0 && !t.done);
     pushChat({from:'bot', text:listMsg('Просрочено', l)}); return;
   }
-  const forAi = [];
-  text.split(/\n|;/).map(x => x.trim()).filter(Boolean).forEach(line => {
-    if(isGoalLine(line)){
-      const g = goalFromText(line);
+  const forAi = [], made = [];
+  let skippedDone = 0, existed = 0;
+  const openTexts = new Set(S.tasks.filter(t => !t.done).map(t => lpNorm(t.t)));
+  parseList(text, iso(TODAY), TODAY.getDay()).forEach(it => {
+    if(it.kind === 'goal'){
+      const g = goalFromText(it.text);
       pushChat(g ? {from:'bot', goal:g.id} : {from:'bot', text:'Напиши после «цель» саму цель, например: «цель на 3 месяца: запустить сайт студии».'});
       if(g) forAi.push({kind:'goal', id:g.id, text:g.t, level:g.level});
       return;
     }
-    const t = T(line[0].toUpperCase()+line.slice(1), parse(line));
-    S.tasks.push(t); pushChat({from:'bot', task:t.id});
-    forAi.push({kind:'task', id:t.id, text:line});
+    if(it.done){ skippedDone++; return; }
+    if(openTexts.has(lpNorm(it.text))){ existed++; return; }
+    const auto = parse(it.text);
+    const t = T(it.text[0].toUpperCase()+it.text.slice(1), auto);
+    if(it.date){ t.date = it.date; if(!it.q) t.imp = true; }
+    if(it.tag) t.tag = it.tag;
+    if(it.q){ setQ(t, it.q); delete t.manual; t.qfix = 1; }
+    S.tasks.push(t); made.push(t); openTexts.add(lpNorm(it.text));
+    forAi.push({kind:'task', id:t.id, text:it.text});
   });
+  if(made.length > 3) pushChat({from:'bot', batch: made.map(t => t.id)});
+  else made.forEach(t => pushChat({from:'bot', task:t.id}));
+  const notes = [];
+  if(skippedDone) notes.push('уже выполненных (✅) пропустил: '+skippedDone);
+  if(existed) notes.push('уже были в списке: '+existed);
+  if(notes.length) pushChat({from:'bot', text: notes.join('\n')});
   if(forAi.length) aiRefine(forAi);
 }
 
@@ -1178,6 +1276,18 @@ function reviewStepCard(m){
     '<button class="linkb" data-a="goalnew" data-v="month:'+g.id+'">Своя формулировка</button></div>';
 }
 
+function batchCard(m){
+  const ts = m.batch.map(find).filter(Boolean);
+  if(!ts.length) return '';
+  let html = '<div class="tcard glass batch"><span class="tt">Записал задач: '+ts.length+'</span>';
+  for(const n of [1,2,3,4]){
+    const g = ts.filter(t => quad(t) === n); if(!g.length) continue;
+    html += '<div class="bq"><div class="where"><span class="dot" style="background:'+qc(n)+'"></span><b style="font-weight:600">'+Q[n].label+'</b><span class="meta">'+g.length+'</span></div>'+
+      g.map(t => { const c = chip(t.date); return '<button class="brow'+(t.done?' isdone':'')+'" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(c||t.tag?'<span class="meta">'+h([c?c.text:'', t.tag].filter(Boolean).join(' · '))+'</span>':'')+'</button>'; }).join('')+'</div>';
+  }
+  return html + '<span class="meta">Нажми на задачу, чтобы поменять квадрант или срок</span></div>';
+}
+
 // ===== быстрое добавление задачи =====
 function addSheet(o){
   const qopts = [['auto','Авто'],['1',Q[1].label],['2',Q[2].label],['3',Q[3].label],['4',Q[4].label]];
@@ -1398,11 +1508,10 @@ async function aiRefine(items){
       const it = items[i]; if(!r || !it) return;
       if(it.kind === 'task'){
         const t = find(it.id); if(!t || t.manual) return;
-        if(typeof r.important === 'boolean') t.imp = r.important;
-        t.urg = r.urgent ? true : null;
-        if(r.date) t.date = r.date;
+        if(!t.qfix){ if(typeof r.important === 'boolean') t.imp = r.important; t.urg = r.urgent ? true : null; }
+        if(r.date && !t.date) t.date = r.date;
         if(r.time) t.time = r.time;
-        if(r.goal_id && goalById(r.goal_id)){ t.gid = r.goal_id; t.imp = true; }
+        if(r.goal_id && goalById(r.goal_id)){ t.gid = r.goal_id; if(!t.qfix) t.imp = true; }
         t.ai = 1; changed = true;
       } else {
         const g = goalById(it.id); if(!g || g.manual) return;
