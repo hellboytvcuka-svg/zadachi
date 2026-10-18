@@ -338,6 +338,42 @@ main.chatmode .chat{flex:1;justify-content:flex-end}
   #app.kb nav{display:none}
   #app.kb main{padding-bottom:8px}
 }
+
+/* ===== правки v5: ноутбук — колонки на всю ширину ===== */
+@media (min-width:900px){
+  .week,.chat,.cform,.gtabs,.gsubhead{width:100%}
+  main.chatmode .chat{max-width:820px}
+  .day,.gcard,.art,.rule,.addbtn{width:100%}
+  .tcard{width:min(560px,80%)}
+  .msg{max-width:min(560px,80%)}
+  .cform textarea{height:46px;padding:12px 0}
+}
+/* формы: поля не вылезают за края на телефоне */
+.grid2>*,.grid4>*,.field{min-width:0}
+input[type=date].inp,input[type=time].inp{-webkit-appearance:none;appearance:none;min-width:0;display:block;text-align:left;line-height:44px}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left}
+@media (max-width:500px){
+  .sheet .grid2{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
+  .sheet .seg span{font-size:12.5px}
+  /* клавиатура открыта: прячем меню и подсказки, контент не уезжает */
+  #app.kb nav, #app.kb .ctx, #app.kb .ctxp{display:none}
+  #app.kb header.top{padding-top:calc(env(safe-area-inset-top) + 2px);padding-bottom:4px}
+  #app.kb h1{font-size:22px}
+  #app.kb .date{display:none}
+  #app.kb .overlay{align-items:flex-start}
+  #app.kb .sheet{max-height:100%;border-radius:0 0 22px 22px}
+  nav button{font-size:9.5px}
+  nav button svg{width:22px;height:22px}
+}
+
+@media (max-width:500px){
+  #app{position:fixed!important;left:0;right:0;top:var(--appTop,0px)}
+}
+
+@media (min-width:900px){
+  .chat,.cform,.week,.gtabs,.gsubhead,.week .day,.gcard,.art,.rule,.addbtn,main.chatmode .chat{margin-left:0!important;margin-right:auto!important;max-width:960px!important}
+  main.chatmode > .msg, main.chatmode > .tcard{max-width:min(560px,80%)}
+}
 </style>
 </head>
 <body>
@@ -834,7 +870,7 @@ let toastTimer = null;
 function toast(text){ S.toast = text; clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; render(true); }, 3000); }
 function render(keepScroll){
   const st = keepScroll ? (app.querySelector('main')||{}).scrollTop : 0;
-  app.className = S.theme === 'dopa' ? 'dopa' : '';
+  app.className = (S.theme === 'dopa' ? 'dopa' : '') + (app.classList.contains('kb') ? ' kb' : '');
   app.style.background = BG[S.theme];
   app.innerHTML =
     '<header class="top"><div class="hd"><span class="date">'+WDF[TODAY.getDay()]+', '+TODAY.getDate()+' '+MON[TODAY.getMonth()]+' <i class="net net-'+S.net+'" title="'+NETT[S.net]+'"></i></span><h1>'+TITLES[S.tab]+'</h1></div>'+
@@ -962,7 +998,11 @@ app.addEventListener('submit', e => {
   const f = e.target;
   if(f.id === 'cf'){
     const ta = f.querySelector('textarea'), v = ta.value.trim(); if(!v) return;
-    send(v); S.scrollChat = true; render(); document.getElementById('ci').focus(); return;
+    send(v); ta.value = ''; ta.style.height = '42px';
+    const m = app.querySelector('main'), chat = app.querySelector('.chat');
+    if(chat){ const tmp = document.createElement('div'); tmp.innerHTML = viewChat(); const nc = tmp.querySelector('.chat'); if(nc) chat.replaceWith(nc); else render(true); }
+    if(m) m.scrollTop = m.scrollHeight;
+    afterRender(); return;
   }
   const fd = new FormData(f), val = k => String(fd.get(k) || '').trim();
   if(!val('t')){ f.querySelector('[name=t]').focus(); return; }
@@ -1298,6 +1338,7 @@ async function sync(){
     S.chat.sort((a,b) => (a.ts||0) - (b.ts||0));
     if(srv.settings && (srv.settings.u||0) > (S.settings.u||0)) S.settings = Object.assign(S.settings, srv.settings);
     resetSnap(); saveLocal();
+    if(dedupeTracker() && stamp()){ saveLocal(); dirty = true; }
     S.net = 'ok';
     if(dirty) syncAgain = true;
     renderKeep();
@@ -1367,6 +1408,28 @@ function compressImage(file){
   });
 }
 
+function dedupeTracker(){
+  const seen = new Map(), drop = new Set();
+  for(const t of S.tasks.slice().sort((a,b) => String(a.id).localeCompare(String(b.id)))){
+    if(!t.src) continue;
+    if(seen.has(t.src)) drop.add(t.id); else seen.set(t.src, t.id);
+  }
+  if(!drop.size) return false;
+  S.tasks = S.tasks.filter(t => !drop.has(t.id));
+  const out = [];
+  S.chat.forEach((m, i) => {
+    if(m.task && drop.has(m.task)) return;
+    if(m.text && /^Из трекера пришло/.test(m.text)){
+      const next = S.chat.slice(i+1).filter(x => x.from === 'bot' && x.task);
+      const firstNext = S.chat[i+1];
+      if(firstNext && firstNext.task && drop.has(firstNext.task) && !(S.chat[i+2] && S.chat[i+2].task && !drop.has(S.chat[i+2].task))) return;
+    }
+    out.push(m);
+  });
+  S.chat = out;
+  return true;
+}
+
 // ===== вход =====
 function loginView(err){
   app.className = ''; app.style.background = BG.calm;
@@ -1413,18 +1476,22 @@ function start(){
   let base = vv.height;
   function fit(){
     if(window.innerWidth > 500) return;
-    const h = vv.height;
-    document.documentElement.style.setProperty('--appH', h+'px');
-    const kb = base - h > 120;            // клавиатура открыта
+    const h = Math.round(vv.height);
+    const de = document.documentElement;
+    de.style.setProperty('--appH', h+'px');
+    de.style.setProperty('--appTop', Math.round(vv.offsetTop)+'px');
+    const ae = document.activeElement;
+    const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.type !== 'date' && ae.type !== 'time';
+    const kb = typing && base - h > 120;
     app.classList.toggle('kb', kb);
     if(!kb) base = Math.max(base, h);
-    window.scrollTo(0, 0);
-    const ae = document.activeElement;
-    if(kb && ae && ae.id === 'ci'){ const m = app.querySelector('main'); if(m) m.scrollTop = m.scrollHeight; }
-    else if(kb && ae && ae.scrollIntoView) ae.scrollIntoView({block:'center'});
+    if(kb && ae.id === 'ci'){ const m = app.querySelector('main'); if(m) m.scrollTop = m.scrollHeight; }
+    else if(kb && ae.closest && ae.closest('.sheet')){ const sh = ae.closest('.sheet'); const r = ae.getBoundingClientRect(), rs = sh.getBoundingClientRect(); if(r.top < rs.top + 40 || r.bottom > rs.bottom - 20) sh.scrollTop += r.top - rs.top - 60; }
   }
   vv.addEventListener('resize', fit);
-  vv.addEventListener('scroll', () => window.scrollTo(0, 0));
+  vv.addEventListener('scroll', fit);
+  document.addEventListener('focusin', () => setTimeout(fit, 50));
+  document.addEventListener('focusout', () => setTimeout(fit, 120));
   window.addEventListener('orientationchange', () => setTimeout(() => { base = vv.height; fit(); }, 400));
   fit();
 })();
