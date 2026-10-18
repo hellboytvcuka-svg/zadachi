@@ -1,5 +1,5 @@
 // Офлайн-кэш приложения: интерфейс открывается мгновенно, данные синхронизируются отдельно
-const CACHE = 'zadachi-v13';
+const CACHE = 'zadachi-v14';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
