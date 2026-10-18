@@ -67,7 +67,7 @@ svg{flex:none}
 .where{display:flex;align-items:center;gap:7px;font-size:13px;flex-wrap:wrap}
 .linkb{color:var(--acc);font-size:13px;height:32px;text-align:left}
 .cform{position:sticky;bottom:0;display:flex;align-items:flex-end;gap:8px;padding:6px 6px 6px 16px;border-radius:24px!important;margin-top:8px}
-.cform textarea{flex:1;min-width:0;resize:none;outline:none;font-size:15px;line-height:1.35;padding:10px 0;max-height:110px;height:42px}
+.cform textarea{flex:1;min-width:0;resize:none;outline:none;font-size:15px;line-height:1.35;padding:10px 0;max-height:140px;height:42px}
 .cform textarea::placeholder{color:var(--mut2)}
 .round{flex:none;width:44px;height:44px;border-radius:22px;background:var(--acc);color:var(--onacc);display:flex;align-items:center;justify-content:center}
 
@@ -373,6 +373,27 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 @media (min-width:900px){
   .chat,.cform,.week,.gtabs,.gsubhead,.week .day,.gcard,.art,.rule,.addbtn,main.chatmode .chat{margin-left:0!important;margin-right:auto!important;max-width:960px!important}
   main.chatmode > .msg, main.chatmode > .tcard{max-width:min(560px,80%)}
+}
+
+/* ===== v6 ===== */
+/* чат: лента прокручивается сама, поле ввода всегда под ней и ничего не перекрывает */
+main.chatmode{display:flex;flex-direction:column;overflow:hidden;padding-bottom:10px}
+main.chatmode > *{flex:none}
+main.chatmode .chat{flex:1 1 auto;min-height:0;overflow-y:auto;justify-content:flex-start!important;padding-bottom:10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+main.chatmode .chat::-webkit-scrollbar{display:none}
+main.chatmode .chat > :first-child{margin-top:auto}
+main.chatmode .cform{position:static;margin-top:6px}
+/* телефон: приложение на весь экран, без чёрной полосы снизу */
+html,body{background:#07080b}
+@media (max-width:500px){
+  #app{top:var(--appTop,0px)!important;bottom:auto;height:var(--appH,100%)!important;min-height:0}
+  #app:not(.kb){top:0!important;bottom:0!important;height:auto!important}
+  #app nav{margin:0 8px calc(env(safe-area-inset-bottom) + 4px)!important}
+  /* форма с открытой клавиатурой: под вырезом, ничего не сжимается */
+  #app.kb .sheet{padding-top:calc(env(safe-area-inset-top) + 8px)}
+  #app.kb .sheet .grab{display:none}
+  .sheet > *{flex-shrink:0}
+  .sheet .primary{min-height:48px}
 }
 </style>
 </head>
@@ -866,6 +887,7 @@ const TITLES = {chat:'Чат', matrix:'Матрица', week:'Неделя', cal
 const TABS = [['matrix','Матрица',I.tMatrix],['chat','Чат',I.tChat],['week','Неделя',I.tWeek],['cal','Календарь',I.tCal],['goals','Цели',I.tGoals],['art','Артефакты',I.tArt]];
 const VIEWS = {chat:viewChat, matrix:viewMatrix, week:viewWeek, cal:viewCal, goals:viewGoals, art:viewArt};
 const app = document.getElementById('app');
+function chatBottom(){ const c = app.querySelector('main.chatmode .chat'); if(c) c.scrollTop = c.scrollHeight; const m = app.querySelector('main'); if(m && !c) m.scrollTop = m.scrollHeight; }
 let toastTimer = null;
 function toast(text){ S.toast = text; clearTimeout(toastTimer); toastTimer = setTimeout(() => { S.toast = null; render(true); }, 3000); }
 function render(keepScroll){
@@ -881,14 +903,17 @@ function render(keepScroll){
     (S.sheet ? viewSheet() : '') +
     (S.toast ? '<div class="toast" role="status">'+h(S.toast)+'</div>' : '');
   const main = app.querySelector('main');
-  if(S.tab === 'chat' && S.scrollChat){ main.scrollTop = main.scrollHeight; S.scrollChat = false; }
+  if(S.tab === 'chat' && S.scrollChat){ chatBottom(); S.scrollChat = false; }
   else if(keepScroll) main.scrollTop = st;
   afterRender();
   const addt = document.getElementById('addt'); if(addt) addt.focus();
   const ta = document.getElementById('ci');
   if(ta){
-    ta.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); ta.form.requestSubmit(); } });
-    ta.addEventListener('input', () => { ta.style.height = '42px'; ta.style.height = Math.min(ta.scrollHeight,110)+'px'; });
+    // как в Telegram: на телефоне Enter = новая строка, отправка только кнопкой; на компьютере Enter = отправить, Shift+Enter = новая строка
+    const touch = window.matchMedia('(pointer:coarse)').matches;
+    ta.setAttribute('enterkeyhint', touch ? 'enter' : 'send');
+    ta.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey && !touch && !e.isComposing){ e.preventDefault(); ta.form.requestSubmit(); } });
+    ta.addEventListener('input', () => { ta.style.height = '42px'; ta.style.height = Math.min(ta.scrollHeight,140)+'px'; });
   }
 }
 
@@ -1001,7 +1026,8 @@ app.addEventListener('submit', e => {
     send(v); ta.value = ''; ta.style.height = '42px';
     const m = app.querySelector('main'), chat = app.querySelector('.chat');
     if(chat){ const tmp = document.createElement('div'); tmp.innerHTML = viewChat(); const nc = tmp.querySelector('.chat'); if(nc) chat.replaceWith(nc); else render(true); }
-    if(m) m.scrollTop = m.scrollHeight;
+    app.querySelectorAll('main.chatmode > .msg').forEach(e => e.remove());
+    chatBottom(); requestAnimationFrame(chatBottom);
     afterRender(); return;
   }
   const fd = new FormData(f), val = k => String(fd.get(k) || '').trim();
@@ -1478,14 +1504,15 @@ function start(){
     if(window.innerWidth > 500) return;
     const h = Math.round(vv.height);
     const de = document.documentElement;
-    de.style.setProperty('--appH', h+'px');
-    de.style.setProperty('--appTop', Math.round(vv.offsetTop)+'px');
     const ae = document.activeElement;
     const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.type !== 'date' && ae.type !== 'time';
     const kb = typing && base - h > 120;
     app.classList.toggle('kb', kb);
+    de.style.setProperty('--appH', kb ? h+'px' : '100%');
+    de.style.setProperty('--appTop', kb ? Math.round(vv.offsetTop)+'px' : '0px');
+    if(!kb) window.scrollTo(0,0);
     if(!kb) base = Math.max(base, h);
-    if(kb && ae.id === 'ci'){ const m = app.querySelector('main'); if(m) m.scrollTop = m.scrollHeight; }
+    if(kb && ae.id === 'ci') chatBottom();
     else if(kb && ae.closest && ae.closest('.sheet')){ const sh = ae.closest('.sheet'); const r = ae.getBoundingClientRect(), rs = sh.getBoundingClientRect(); if(r.top < rs.top + 40 || r.bottom > rs.bottom - 20) sh.scrollTop += r.top - rs.top - 60; }
   }
   vv.addEventListener('resize', fit);
