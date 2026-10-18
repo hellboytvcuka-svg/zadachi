@@ -418,8 +418,8 @@ html,body{background:#07080b}
 .cform textarea:not(:placeholder-shown){white-space:pre-wrap}
 /* v9: телефон — приложение и фон на всю высоту экрана, без чёрной полосы */
 @media (max-width:500px){
-  html,body{height:100lvh}
-  #app:not(.kb){top:0!important;bottom:auto!important;height:100lvh!important}
+  html,body{height:var(--appH,100vh)}
+  #app:not(.kb){top:0!important;bottom:auto!important;height:var(--appH,100vh)!important}
   body{background:var(--appbg,#07080b)}
 }
 
@@ -1704,7 +1704,9 @@ function start(){
     const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.type !== 'date' && ae.type !== 'time';
     const kb = typing && base - h > 120;
     app.classList.toggle('kb', kb);
-    de.style.setProperty('--appH', kb ? h+'px' : '100%');
+    // iPhone-приложение с экрана «Домой» сообщает высоту экрана без строки статуса — берём реальную высоту экрана
+    const full = navigator.standalone ? Math.max(screen.height, window.innerHeight) : window.innerHeight;
+    de.style.setProperty('--appH', (kb ? h : full)+'px');
     de.style.setProperty('--appTop', kb ? Math.round(vv.offsetTop)+'px' : '0px');
     if(!kb) window.scrollTo(0,0);
     if(!kb) base = Math.max(base, h);
@@ -1712,6 +1714,8 @@ function start(){
     else if(kb && ae.closest && ae.closest('.sheet')){ const sh = ae.closest('.sheet'); const r = ae.getBoundingClientRect(), rs = sh.getBoundingClientRect(); if(r.top < rs.top + 40 || r.bottom > rs.bottom - 20) sh.scrollTop += r.top - rs.top - 60; }
   }
   vv.addEventListener('resize', fit);
+  window.addEventListener('resize', () => setTimeout(fit, 50));
+  setTimeout(fit, 300);
   vv.addEventListener('scroll', fit);
   document.addEventListener('focusin', () => setTimeout(fit, 50));
   document.addEventListener('focusout', () => setTimeout(fit, 120));
