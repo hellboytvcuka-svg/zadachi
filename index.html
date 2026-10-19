@@ -459,6 +459,13 @@ html,body{background:#07080b}
 }
 html.sa:not(:has(#app.kb)){position:static!important;height:auto!important;min-height:min(100lvh, calc(100% + env(safe-area-inset-top)))!important}
 html.sa:not(:has(#app.kb)) body{position:static!important;height:auto!important;min-height:inherit!important;overflow:hidden}
+.callrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--acc);margin-top:2px}
+.callrow .linkb{color:var(--acc)}
+.qlist{display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;max-height:440px}
+.qlist::-webkit-scrollbar{display:none}
+.qlist.long{-webkit-mask-image:linear-gradient(#000 calc(100% - 28px),transparent);mask-image:linear-gradient(#000 calc(100% - 28px),transparent);padding-bottom:18px}
+.quad.wide .qlist{max-height:none}
+@media (max-width:500px){.qlist{max-height:420px}}
 .diag{font-size:11px;color:var(--mut2);text-align:center;margin-top:10px;line-height:1.5}
 </style>
 </head>
@@ -601,7 +608,25 @@ function parse(text){
   const tm = s.match(/(?:^|\s)(?:в\s)?(\d{1,2})[:.\-](\d{2})(?=\s|$)/);
   const time = tm ? tm[1].padStart(2,'0')+':'+tm[2] : '';
   const urg = /срочно|горит/.test(s) ? true : null;
+  if(!date && time && CALL_RE.test(text)){ const n = new Date(); date = (n.getHours()*60+n.getMinutes() < +time.slice(0,2)*60 + +time.slice(3)) ? addD(0) : addD(1); }
   return {imp:!!g, gid:g?g.id:'', date, time, urg};
+}
+// ===== созвоны → будильник на iPhone =====
+const CALL_RE = /(созвон|позвон|звонок|звонк|созвонит|📞)/i;
+const ALARM_LEAD = 10; // минут до созвона
+const isCall = t => t.call === true || (t.call !== false && CALL_RE.test(t.t || ''));
+function alarmAt(time){ const [hh, mm] = time.split(':').map(Number); const m = (hh*60 + mm - ALARM_LEAD + 1440) % 1440; return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+async function alarmKey(){
+  try{ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(AUTH.pass+':alarms')); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('').slice(0,24); }catch(e){ return ''; }
+}
+const alarmLink = () => S.alarmKey ? AUTH.url.replace(/\/+$/,'')+'/alarms?k='+S.alarmKey : '';
+function runAlarms(){
+  sync();
+  setTimeout(() => { location.href = 'shortcuts://run-shortcut?name='+encodeURIComponent('Созвоны'); }, 50);
+}
+function callLine(t){
+  if(!isCall(t)) return '';
+  return '<div class="callrow"><span>📞 '+(t.time ? 'Будильник в '+alarmAt(t.time) : 'Добавь время — поставлю будильник')+'</span>'+(t.time ? '<button class="linkb" data-a="alrun">⏰ Поставить</button>' : '')+'</div>';
 }
 function isGoalLine(line){ return /^цель(\s|:|$)/.test(norm(line.trim())); }
 function goalFromText(line){
@@ -731,7 +756,7 @@ function chipsHtml(t){
   if(t.pinned) out += '<span class="pinned-ic">'+I.pin+'</span>';
   out += spTag(t);
   if(t.src) out += '<span class="srctag">трекер</span>';
-  if(c) out += '<span class="'+(c.late && !t.done ? 'late' : '')+'">'+h(c.text)+(t.time ? ' · '+h(t.time) : '')+'</span>';
+  if(c) out += '<span class="'+(c.late && !t.done ? 'late' : '')+'">'+h(c.text)+(t.time ? ' · '+(isCall(t)?'📞 ':'')+h(t.time) : '')+'</span>';
   return out ? '<span class="chips">'+out+'</span>' : '';
 }
 function chk(t){ return '<button class="chk '+(t.done?'done':'')+'" data-a="toggle" data-v="'+t.id+'" aria-label="Выполнено"><span>'+(t.done?I.check:'')+'</span></button>'; }
@@ -801,7 +826,7 @@ function viewChat(){
     const where = [c ? c.text : 'без даты', t.time, tg(t)].filter(Boolean).join(' · ');
     html += '<div class="tcard glass '+(t.done?'isdone':'')+'"><span class="tt">'+h(t.t)+'</span>'+
       '<div class="where"><span class="dot" style="background:'+qc(q)+'"></span><b style="font-weight:600">'+Q[q].label+'</b></div>'+
-      '<span class="meta '+(c&&c.late&&!t.done?'late':'')+'">'+spTag(t)+h(where)+'</span>';
+      '<span class="meta '+(c&&c.late&&!t.done?'late':'')+'">'+spTag(t)+h(where)+'</span>'+(t.done ? '' : callLine(t));
     if(S.editIn === t.id){
       html += '<div class="grid2" style="margin-top:4px">'+[1,2,3,4].map(n => '<button class="opt '+(n===q?'on':'')+'" data-a="setq" data-v="'+t.id+':'+n+'" data-closeedit="1"><span class="dot" style="background:'+qc(n)+'"></span>'+Q[n].label+'</button>').join('')+'</div>';
     } else {
@@ -818,13 +843,13 @@ function viewMatrix(){
   for(const n of [1,2,3,4]){
     const list = VT().filter(t => quad(t) === n).sort(byRank);
     const open = S.expandedQ === n;
-    const shown = open ? list : list.slice(0,5);
+    const shown = list;
     const left = list.filter(t => !t.done).length;
     html += '<section class="quad q'+n+' glass '+(open?'wide':'')+'" data-q="'+n+'">';
     html += '<button class="qhead" data-a="more" data-v="'+n+'"><span class="dot" style="background:'+qc(n)+'"></span><h2>'+Q[n].label+'<small>'+Q[n].sub+'</small></h2><span class="n">'+left+'</span></button>';
     if(!list.length) html += '<div class="empty">Перетащи сюда</div>';
-    for(const t of shown) html += '<div class="mrow '+(t.done?'isdone':'')+'" data-id="'+t.id+'">'+chk(t)+'<button class="mt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+chipsHtml(t)+'</button></div>';
-    if(list.length > 5) html += '<button class="more" data-a="more" data-v="'+n+'">'+(open ? 'Свернуть' : 'Ещё '+(list.length-5))+'</button>';
+    // все задачи сразу — список листается внутри квадранта, без «Ещё»
+    if(list.length) html += '<div class="qlist'+(list.length > 5 ? ' long' : '')+'">'+shown.map(t => '<div class="mrow '+(t.done?'isdone':'')+'" data-id="'+t.id+'">'+chk(t)+'<button class="mt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+chipsHtml(t)+'</button></div>').join('')+'</div>';
     html += '<button class="addrow" data-a="addtask" data-v="q'+n+'">'+I.plus+'Добавить</button>';
     html += '</section>';
   }
@@ -849,7 +874,7 @@ function dayBlock(key, num, name, sub, list, kind){
   if(open){
     html += '<div class="dlist">';
     for(const t of list){
-      const meta = [t.time, kind==='late' ? chip(t.date).text : '', tg(t)].filter(Boolean).join(' · ');
+      const meta = [(t.time && isCall(t) ? '📞 ' : '')+(t.time||''), kind==='late' ? chip(t.date).text : '', tg(t)].filter(Boolean).join(' · ');
       html += '<div class="wrow '+(t.done?'isdone':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta||t.sp?'<span class="meta">'+spTag(t)+h(meta)+'</span>':'')+'</button><span class="dot" style="background:'+qc(quad(t))+'"></span></div>';
     }
     html += '</div>';
@@ -890,7 +915,7 @@ function viewCal(){
   html += '<div class="sect" style="display:flex;align-items:center;justify-content:space-between">'+WDF[sd.getDay()]+', '+sd.getDate()+' '+MON[sd.getMonth()]+'<button class="addpill glass" data-a="addtask" data-v="d'+S.sel+'">'+I.plus+'Задача</button></div><div class="glass" style="padding:0 14px">';
   if(!list.length) html += '<div class="empty" style="padding:14px 0">Свободный день</div>';
   list.forEach((t,i) => {
-    const meta = [t.time, tg(t)].filter(Boolean).join(' · ');
+    const meta = [(t.time && isCall(t) ? '📞 ' : '')+(t.time||''), tg(t)].filter(Boolean).join(' · ');
     html += '<div class="wrow '+(t.done?'isdone':'')+'" style="'+(i===0?'border-top:0':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta||t.sp?'<span class="meta">'+spTag(t)+h(meta)+'</span>':'')+'</button><span class="dot" style="background:'+qc(quad(t))+'"></span></div>';
   });
   return html + '</div>';
@@ -1013,6 +1038,9 @@ function taskSheet(t){
     '</div><span class="lbl">Срок</span><div class="grid4">'+
     dateOpts.map(([l,v]) => '<button class="opt" data-a="date" data-v="'+t.id+':'+v+'">'+l+'</button>').join('')+
     '</div><span class="lbl">Сфера</span><div class="grid2">'+['work','life'].map(k => '<button class="opt '+(t.sp===k?'on':'')+'" data-a="setsp" data-v="'+t.id+':'+k+'"><span class="dot" style="background:'+SP[k].c+'"></span>'+SP[k].label+'</button>').join('')+'</div>'+
+    field('Время','<input class="inp" type="time" id="ttime" data-tid="'+t.id+'" value="'+h(t.time||'')+'">')+
+    '<button class="opt '+(isCall(t)?'on':'')+'" data-a="callt" data-v="'+t.id+'">📞 '+(isCall(t)?'Созвон — будильник за '+ALARM_LEAD+' мин':'Отметить как созвон')+'</button>'+
+    (isCall(t) && t.time && !t.done ? '<button class="opt" data-a="alrun">⏰ Поставить будильник на '+alarmAt(t.time)+'</button>' : '')+
     field('Цель','<select class="inp" id="tgoal" data-tid="'+t.id+'">'+goalOptions(t.gid)+'</select>')+
     '<button class="ghost" data-a="del" data-v="'+t.id+'">Удалить задачу</button></div>';
 }
@@ -1177,6 +1205,9 @@ app.addEventListener('click', e => {
     case 'open': S.sheet = {type:'task', id:v}; break;
     case 'editin': S.editIn = v; break;
     case 'pin': t.pinned = !t.pinned; break;
+    case 'callt': t.call = !isCall(t); if(t.call && t.time && !t.date) t.date = addD(0); break;
+    case 'alrun': render(true); runAlarms(); return;
+    case 'alcopy': { const l = alarmLink(); if(!l){ toast('Ссылка ещё готовится, открой настройки снова'); break; } (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(() => toast('Ссылка скопирована'), () => { const i = document.getElementById('alink'); if(i){ i.select(); document.execCommand('copy'); toast('Ссылка скопирована'); } }); break; }
     case 'setq': setQ(t, +arg); if(el.dataset.closeedit) S.editIn = null; break;
     case 'date': t.date = arg === 'none' ? null : addD(+arg); t.urg = null; t.manual = 1; break;
     case 'del': if(t.src) S.settings.trIgnored.push(t.src); S.tasks = S.tasks.filter(x => x !== t); S.sheet = null; break;
@@ -1277,6 +1308,11 @@ app.addEventListener('change', e => {
     const sel = document.getElementById('gparent');
     sel.innerHTML = parentOpts(el.value, sel.value, S.sheet.id);
     document.getElementById('ghint').textContent = levelHint(el.value);
+  }
+  if(el.id === 'ttime'){
+    const t = find(el.dataset.tid); t.time = el.value || '';
+    if(t.time && !t.date && isCall(t)) t.date = addD(0);
+    render(true);
   }
   if(el.id === 'tgoal'){
     const t = find(el.dataset.tid); t.gid = el.value; t.manual = 1; if(el.value) t.imp = true; render(true);
@@ -1425,10 +1461,14 @@ function trackerSheet(){
     '<span class="lbl" style="margin-top:8px">Telegram-бот</span>'+
     '<p class="meta" style="margin:0">'+(S.tgLinked === true ? 'Бот привязан ✓ Пиши ему задачи — они появятся здесь.' : S.tgLinked === false ? 'Бот ещё не привязан. Нажми кнопку — откроется Telegram, там нажми «Старт».' : 'Проверяю…')+'</p>'+
     '<button class="opt" data-a="tgsetup">'+(S.tgLinked ? 'Перепривязать бота' : 'Подключить Telegram')+'</button>'+
+    '<span class="lbl" style="margin-top:8px">Будильники на iPhone</span>'+
+    '<p class="meta" style="margin:0">Созвоны со временем («созвон», «позвонить», «звонок» или 📞) — будильник за '+ALARM_LEAD+' минут. Эту ссылку вставь в команду «Созвоны»:</p>'+
+    '<input class="inp" id="alink" readonly value="'+h(alarmLink() || 'готовлю ссылку…')+'">'+
+    '<div class="grid2"><button class="opt" data-a="alcopy">Скопировать ссылку</button><button class="opt" data-a="alrun">⏰ Поставить сейчас</button></div>'+
     '<span class="lbl" style="margin-top:8px">Аккаунт</span>'+
     '<p class="meta" style="margin:0">Синхронизация: '+NETT[S.net]+'</p>'+
     '<button class="ghost" data-a="logout">Выйти на этом устройстве</button>' +
-    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v15</div></div>';
+    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v17</div></div>';
 }
 const cardQuad = title => { const n = norm(title); return /срочно и важно/.test(n) ? 1 : /важно,? но не срочно|важно,? не срочно/.test(n) ? 2 : /срочно,? но не важно|делег/.test(n) ? 3 : /не срочно,? не важно/.test(n) ? 4 : 0; };
 const plural = (n, a, b, c) => { n = Math.abs(n) % 100; const k = n % 10; return n > 10 && n < 20 ? c : k > 1 && k < 5 ? b : k === 1 ? a : c; };
@@ -1708,6 +1748,7 @@ document.addEventListener('submit', async e => {
 function start(){
   S.theme = localStorage.getItem('zd_theme') || 'calm';
   loadLocal(); resetSnap();
+  alarmKey().then(k => { S.alarmKey = k; if(S.sheet) render(true); });
   S.net = 'sync';
   render();
   sync().then(() => { if(S.settings.trOn) syncTracker(false); });
