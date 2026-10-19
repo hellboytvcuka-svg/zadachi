@@ -1502,7 +1502,7 @@ function trackerSheet(){
     '<span class="lbl" style="margin-top:8px">Аккаунт</span>'+
     '<p class="meta" style="margin:0">Синхронизация: '+NETT[S.net]+'</p>'+
     '<button class="ghost" data-a="logout">Выйти на этом устройстве</button>' +
-    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v19</div></div>';
+    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · '+APP_V+'</div></div>';
 }
 const cardQuad = title => { const n = norm(title); return /срочно и важно/.test(n) ? 1 : /важно,? но не срочно|важно,? не срочно/.test(n) ? 2 : /срочно,? но не важно|делег/.test(n) ? 3 : /не срочно,? не важно/.test(n) ? 4 : 0; };
 const plural = (n, a, b, c) => { n = Math.abs(n) % 100; const k = n % 10; return n > 10 && n < 20 ? c : k > 1 && k < 5 ? b : k === 1 ? a : c; };
@@ -1824,6 +1824,23 @@ function start(){
 })();
 if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// автообновление: при открытии приложения проверяем, не вышла ли новая версия, и сразу подтягиваем её
+const APP_V = 'v20';
+async function checkUpdate(){
+  try{
+    const r = await fetch('./?u='+Date.now(), {cache:'no-store'}); const txt = await r.text();
+    const m = txt.match(/const APP_V = '(v\d+)'/);
+    if(m && m[1] !== APP_V && sessionStorage.getItem('zd_upd') !== m[1]){
+      sessionStorage.setItem('zd_upd', m[1]);
+      const regs = navigator.serviceWorker ? await navigator.serviceWorker.getRegistrations() : [];
+      await Promise.all(regs.map(x => x.update().catch(() => {})));
+      if(window.caches){ const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
+      location.reload();
+    }
+  }catch(e){}
+}
+setTimeout(checkUpdate, 1500);
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') checkUpdate(); });
 if(AUTH.pass && AUTH.url) start(); else loginView();
 </script>
 </body>
