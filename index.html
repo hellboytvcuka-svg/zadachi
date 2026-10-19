@@ -620,9 +620,22 @@ async function alarmKey(){
   try{ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(AUTH.pass+':alarms')); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('').slice(0,24); }catch(e){ return ''; }
 }
 const alarmLink = () => S.alarmKey ? AUTH.url.replace(/\/+$/,'')+'/alarms?k='+S.alarmKey : '';
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const openAlarmShortcut = () => { location.href = 'shortcuts://run-shortcut?name='+encodeURIComponent('Созвоны'); };
 function runAlarms(){
   sync();
-  setTimeout(() => { location.href = 'shortcuts://run-shortcut?name='+encodeURIComponent('Созвоны'); }, 50);
+  setTimeout(openAlarmShortcut, 50);
+}
+// автоматически: на iPhone после записи созвона на сегодня — сохранить и сразу запустить команду
+function autoAlarmOn(){ try{ const v = localStorage.getItem('zd_autoalarm'); return v === null ? IOS : v === '1'; }catch(e){ return IOS; } }
+function dueToday(t){
+  if(!isCall(t) || !t.time || t.done || t.date !== addD(0)) return false;
+  const n = new Date(), [hh, mm] = t.time.split(':').map(Number);
+  return hh*60 + mm - ALARM_LEAD > n.getHours()*60 + n.getMinutes();
+}
+function autoAlarm(list){
+  if(!autoAlarmOn() || !list.some(dueToday)) return;
+  setTimeout(() => { Promise.resolve(sync()).catch(() => {}).finally(() => setTimeout(openAlarmShortcut, 300)); }, 400);
 }
 function callLine(t){
   if(!isCall(t)) return '';
@@ -1172,6 +1185,7 @@ function send(text){
   if(existed) notes.push('уже были в списке: '+existed);
   if(notes.length) pushChat({from:'bot', text: notes.join('\n')});
   if(forAi.length) aiRefine(forAi);
+  autoAlarm(made);
 }
 
 // ===== действия =====
@@ -1207,6 +1221,7 @@ app.addEventListener('click', e => {
     case 'pin': t.pinned = !t.pinned; break;
     case 'callt': t.call = !isCall(t); if(t.call && t.time && !t.date) t.date = addD(0); break;
     case 'alrun': render(true); runAlarms(); return;
+    case 'alauto': try{ localStorage.setItem('zd_autoalarm', autoAlarmOn() ? '0' : '1'); }catch(e){} break;
     case 'alcopy': { const l = alarmLink(); if(!l){ toast('Ссылка ещё готовится, открой настройки снова'); break; } (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(() => toast('Ссылка скопирована'), () => { const i = document.getElementById('alink'); if(i){ i.select(); document.execCommand('copy'); toast('Ссылка скопирована'); } }); break; }
     case 'setq': setQ(t, +arg); if(el.dataset.closeedit) S.editIn = null; break;
     case 'date': t.date = arg === 'none' ? null : addD(+arg); t.urg = null; t.manual = 1; break;
@@ -1267,6 +1282,7 @@ app.addEventListener('submit', e => {
   if(f.id === 'addform'){
     const text = val('t'), auto = parse(text);
     const t = T(text[0].toUpperCase()+text.slice(1), Object.assign(auto, {date: val('date') || auto.date || null, time: val('time') || auto.time}));
+    setTimeout(() => autoAlarm([t]), 0);
     if(val('q') !== 'auto') setQ(t, +val('q'));
     else if(S.sheet && S.sheet.imp !== undefined){ t.imp = !!S.sheet.imp; t.qfix = 1; }
     t.sp = val('sp') || (S.sheet && S.sheet.sp) || '';
@@ -1465,10 +1481,11 @@ function trackerSheet(){
     '<p class="meta" style="margin:0">Созвоны со временем («созвон», «позвонить», «звонок» или 📞) — будильник за '+ALARM_LEAD+' минут. Эту ссылку вставь в команду «Созвоны»:</p>'+
     '<input class="inp" id="alink" readonly value="'+h(alarmLink() || 'готовлю ссылку…')+'">'+
     '<div class="grid2"><button class="opt" data-a="alcopy">Скопировать ссылку</button><button class="opt" data-a="alrun">⏰ Поставить сейчас</button></div>'+
+    '<button class="opt '+(autoAlarmOn()?'on':'')+'" data-a="alauto">'+(autoAlarmOn() ? '✓ Ставить будильник сразу после записи созвона' : 'Ставить будильник сразу после записи созвона')+'</button>'+
     '<span class="lbl" style="margin-top:8px">Аккаунт</span>'+
     '<p class="meta" style="margin:0">Синхронизация: '+NETT[S.net]+'</p>'+
     '<button class="ghost" data-a="logout">Выйти на этом устройстве</button>' +
-    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v17</div></div>';
+    '<div class="diag">экран '+screen.height+' · окно '+window.innerHeight+' · видно '+Math.round((window.visualViewport||{}).height||0)+' · приложение '+Math.round(app.getBoundingClientRect().height)+(navigator.standalone?' · с экрана Домой':'')+' · v18</div></div>';
 }
 const cardQuad = title => { const n = norm(title); return /срочно и важно/.test(n) ? 1 : /важно,? но не срочно|важно,? не срочно/.test(n) ? 2 : /срочно,? но не важно|делег/.test(n) ? 3 : /не срочно,? не важно/.test(n) ? 4 : 0; };
 const plural = (n, a, b, c) => { n = Math.abs(n) % 100; const k = n % 10; return n > 10 && n < 20 ? c : k > 1 && k < 5 ? b : k === 1 ? a : c; };
