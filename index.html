@@ -476,10 +476,20 @@ html.sa:not(:has(#app.kb)) body{position:static!important;height:auto!important;
 .tedit:hover{border-color:rgba(255,255,255,.10)}
 .tedit:focus{outline:none;border-color:var(--acc);background:rgba(255,255,255,.04)}
 /* быстрее листается: размытие фона только у плавающих панелей, у карточек — обычная полупрозрачная заливка */
-main .glass, .ctxp, .sheet .glass{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-main .glass{background:rgba(20,20,22,.78)}
-.quad, .day, .gcard, .art{contain:layout paint}
-main{will-change:scroll-position;-webkit-overflow-scrolling:touch}
+@media (min-width:900px){
+  main .glass, .ctxp, .sheet .glass{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  main .glass{background:rgba(20,20,22,.78)}
+  .quad, .day, .gcard, .art{contain:layout paint}
+}
+/* телефон: страница не «гуляет» в стороны, колонки матрицы всегда влезают в экран */
+@media (max-width:899px){
+  html, body{overflow-x:hidden;overscroll-behavior:none}
+  #app{touch-action:pan-y}
+  .matrix{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+  .matrix > *{min-width:0}
+  .qhead h2{white-space:normal;overflow-wrap:anywhere}
+  .mrow .tt{overflow-wrap:anywhere}
+}
 /* компьютер: квадранты показывают все задачи целиком, листается вся страница */
 @media (min-width:900px){
   .qlist{max-height:none!important;overflow:visible!important;-webkit-mask-image:none!important;mask-image:none!important;padding-bottom:0!important}
@@ -1978,7 +1988,7 @@ window.addEventListener('wheel', e => {
 if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // автообновление: при открытии приложения проверяем, не вышла ли новая версия, и сразу подтягиваем её
-const APP_V = 'v31';
+const APP_V = 'v32';
 async function checkUpdate(){
   try{
     const r = await fetch('./?u='+Date.now(), {cache:'no-store'}); const txt = await r.text();
