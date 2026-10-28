@@ -480,6 +480,10 @@ main .glass, .ctxp, .sheet .glass{backdrop-filter:none!important;-webkit-backdro
 main .glass{background:rgba(20,20,22,.78)}
 .quad, .day, .gcard, .art{contain:layout paint}
 main{will-change:scroll-position;-webkit-overflow-scrolling:touch}
+/* компьютер: квадранты показывают все задачи целиком, листается вся страница */
+@media (min-width:900px){
+  .qlist{max-height:none!important;overflow:visible!important;-webkit-mask-image:none!important;mask-image:none!important;padding-bottom:0!important}
+}
 .opt.flash{animation:optpop .45s ease}
 @keyframes optpop{0%{transform:scale(1)}35%{transform:scale(1.06);background:rgba(217,194,160,.22)}100%{transform:scale(1)}}
 .latebar{margin-bottom:0}
@@ -1965,10 +1969,16 @@ function start(){
   window.addEventListener('orientationchange', () => setTimeout(() => { base = vv.height; fit(); }, 400));
   fit();
 })();
+// компьютер: колесо мыши в любом месте окна (меню слева, поля) листает основную страницу
+window.addEventListener('wheel', e => {
+  if(window.innerWidth < 900 || S.sheet || e.ctrlKey) return;
+  const main = app.querySelector('main'); if(!main || main.contains(e.target)) return;
+  main.scrollTop += e.deltaY; e.preventDefault();
+}, {passive:false});
 if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // автообновление: при открытии приложения проверяем, не вышла ли новая версия, и сразу подтягиваем её
-const APP_V = 'v30';
+const APP_V = 'v31';
 async function checkUpdate(){
   try{
     const r = await fetch('./?u='+Date.now(), {cache:'no-store'}); const txt = await r.text();
