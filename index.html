@@ -489,6 +489,11 @@ html.sa:not(:has(#app.kb)) body{position:static!important;height:auto!important;
   .matrix > *{min-width:0}
   .qhead h2{white-space:normal;overflow-wrap:anywhere}
   .mrow .tt{overflow-wrap:anywhere}
+  /* внутри квадранта список листается только вверх-вниз, строки не вылезают вбок */
+  .qlist{overflow-x:hidden!important;touch-action:pan-y}
+  .mrow, .mrow .mt{min-width:0;max-width:100%}
+  .mrow .mt{flex:1 1 auto}
+  .chips{flex-wrap:wrap;min-width:0;row-gap:2px}
 }
 /* компьютер: квадранты показывают все задачи целиком, листается вся страница */
 @media (min-width:900px){
@@ -1988,7 +1993,7 @@ window.addEventListener('wheel', e => {
 if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // автообновление: при открытии приложения проверяем, не вышла ли новая версия, и сразу подтягиваем её
-const APP_V = 'v32';
+const APP_V = 'v33';
 async function checkUpdate(){
   try{
     const r = await fetch('./?u='+Date.now(), {cache:'no-store'}); const txt = await r.text();
