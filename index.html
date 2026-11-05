@@ -512,6 +512,28 @@ html.sa:not(:has(#app.kb)) body{position:static!important;height:auto!important;
 .archrow.ok .archmark{color:var(--acc)}
 .archt{flex:1;text-align:left;font-size:14px;color:var(--ink)}
 .archrow:not(.ok) .archt{color:var(--mut)}
+.calmodes{margin-bottom:10px}
+.mweek{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;padding:10px 0 14px;border-top:1px solid var(--line)}
+.mcol{display:flex;flex-direction:column;gap:6px;min-width:0;min-height:56px}
+.mcol.out{opacity:.4}
+.mday{display:flex;flex-direction:column;align-items:center;gap:0;padding:4px 0;border-radius:10px;color:var(--ink)}
+.mday b{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+.mday small{font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:.06em}
+.mcol.today .mday{background:var(--acc);color:var(--onacc)}
+.mcol.today .mday small{color:var(--onacc);opacity:.7}
+.mcard{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:9px 9px 8px;border-radius:12px;background:rgba(217,194,160,.16);border:1px solid rgba(217,194,160,.22);color:var(--ink);min-width:0}
+.mcard .mem{font-size:17px;line-height:1}
+.mcard .mtt{font-size:13px;font-weight:600;line-height:1.25;overflow-wrap:break-word;hyphens:auto;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.mcard .mtm{font-size:12px;font-weight:700;color:var(--acc);font-variant-numeric:tabular-nums}
+.mcard.done{opacity:.4}
+.mcard.done .mtt{text-decoration:line-through}
+.mcard.late{border-color:var(--late)}
+/* телефон: неделя листается вбок, видно ~4 дня как в Toki */
+@media (max-width:899px){
+  .mweek{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x pan-y}
+  .mweek::-webkit-scrollbar{display:none}
+  .mcol{flex:0 0 calc((100% - 18px)/4);scroll-snap-align:start}
+}
 .dateexact{display:flex;align-items:center;gap:10px;margin-top:-2px}
 .dateexact .meta{white-space:nowrap}
 .dateexact .inp{flex:1;height:40px}
@@ -1036,12 +1058,42 @@ function viewWeek(){
   return html + '</div>';
 }
 
+// календарь в режиме «Созвоны»: доска по дням, карточки встреч и созвонов
+function calMode(){ if(!S.calMode){ try{ S.calMode = localStorage.getItem('zd_calmode') || 'all'; }catch(e){ S.calMode = 'all'; } } return S.calMode; }
+const meetEmoji = t => /zoom|зум|онлайн|meet|телемост|скайп|видео/i.test(t.t) ? '💻' : /встреч|переговор|собеседов/i.test(t.t) && !/созвон|позвон|звон/i.test(t.t) ? '🤝' : '📞';
+const meetTitle = t => { let x = String(t.t).replace(/(^|\s)(в|во|на)?\s*\d{1,2}[:.\-]\d{2}(?=\s|$)/gi, ' ').replace(/(^|\s)(сегодня|завтра|послезавтра|(в|во)\s+(понедельник|вторник|среду|четверг|пятницу|субботу|воскресенье))(?=\s|$|[,.])/gi, ' ').replace(/📞/g,'').replace(/\s+/g,' ').trim(); return x ? x[0].toUpperCase()+x.slice(1) : t.t; };
+function calModeBar(){
+  return '<div class="spbar glass calmodes" style="grid-template-columns:1fr 1fr">'+[['all','Все задачи'],['calls','📞 Созвоны']].map(([k,l]) => '<button class="'+(calMode()===k?'on':'')+'" data-a="calmode" data-v="'+k+'">'+l+'</button>').join('')+'</div>';
+}
+function viewCalls(){
+  const {y,m} = S.cal;
+  const first = new Date(y,m,1), off = (first.getDay()+6)%7, dim = new Date(y,m+1,0).getDate();
+  const weeks = Math.ceil((off+dim)/7);
+  const meets = S.tasks.filter(t => t.date && isMeet(t) && showDone(t) && (S.spf === 'all' || t.sp === S.spf));
+  let html = ctxStrip() + calModeBar() + '<div class="calhead glass" style="margin-bottom:10px"><button class="navb" data-a="calprev" aria-label="Предыдущий месяц">'+I.left+'</button><b>'+MONF[m]+' '+y+'</b><button class="navb" data-a="calnext" aria-label="Следующий месяц">'+I.right+'</button></div>';
+  const total = meets.filter(t => { const d = pd(t.date); return d.getFullYear() === y && d.getMonth() === m; }).length;
+  html += '<p class="meta" style="margin:-2px 4px 10px">'+(total ? 'Встреч и созвонов в этом месяце: '+total : 'В этом месяце встреч и созвонов нет. Нажми на день, чтобы добавить.')+'</p>';
+  for(let w=0; w<weeks; w++){
+    let row = '';
+    for(let i=0;i<7;i++){
+      const d = new Date(y,m,1-off+w*7+i), k = iso(d), out = d.getMonth() !== m;
+      const list = meets.filter(t => t.date === k).sort((a,b) => String(a.time||'99').localeCompare(String(b.time||'99')));
+      row += '<div class="mcol'+(out?' out':'')+(k===iso(TODAY)?' today':'')+'">'+
+        '<button class="mday" data-a="addtask" data-v="m'+k+'" title="Добавить созвон на этот день"><b>'+String(d.getDate()).padStart(2,'0')+'</b><small>'+['вс','пн','вт','ср','чт','пт','сб'][d.getDay()]+'</small></button>'+
+        list.map(t => '<button class="mcard'+(t.done?' done':'')+(t.date < iso(TODAY) && !t.done ? ' late' : '')+'" data-a="open" data-v="'+t.id+'"><span class="mem">'+meetEmoji(t)+'</span><span class="mtt">'+h(meetTitle(t))+'</span>'+(t.time?'<span class="mtm">'+h(t.time)+'</span>':'')+'</button>').join('')+
+        '</div>';
+    }
+    html += '<div class="mweek">'+row+'</div>';
+  }
+  return html;
+}
 function viewCal(){
+  if(calMode() === 'calls') return viewCalls();
   const {y,m} = S.cal;
   const first = new Date(y,m,1), off = (first.getDay()+6)%7;
   const dim = new Date(y,m+1,0).getDate();
   const cells = Math.ceil((off+dim)/7)*7;
-  let html = ctxStrip() + spBar() + '<div class="glass"><div class="calhead"><button class="navb" data-a="calprev" aria-label="Предыдущий месяц">'+I.left+'</button><b>'+MONF[m]+' '+y+'</b><button class="navb" data-a="calnext" aria-label="Следующий месяц">'+I.right+'</button></div><div class="cal">';
+  let html = ctxStrip() + calModeBar() + spBar() + '<div class="glass"><div class="calhead"><button class="navb" data-a="calprev" aria-label="Предыдущий месяц">'+I.left+'</button><b>'+MONF[m]+' '+y+'</b><button class="navb" data-a="calnext" aria-label="Следующий месяц">'+I.right+'</button></div><div class="cal">';
   ['пн','вт','ср','чт','пт','сб','вс'].forEach(w => html += '<div class="wdn">'+w+'</div>');
   for(let i=0;i<cells;i++){
     const d = new Date(y,m,1-off+i), k = iso(d);
@@ -1400,6 +1452,7 @@ app.addEventListener('click', e => {
     case 'open': S.sheet = {type:'task', id:v}; break;
     case 'editin': S.editIn = v; break;
     case 'pin': t.pinned = !t.pinned; break;
+    case 'calmode': S.calMode = v; S.mScrolled = 0; try{ localStorage.setItem('zd_calmode', v); }catch(e){} keep = false; break;
     case 'meett': t.meet = !isMeet(t); break;
     case 'callt': t.call = !isCall(t); if(t.call && t.time && !t.date) t.date = addD(0); break;
     case 'alrun': render(true); runAlarms(); return;
@@ -1874,6 +1927,7 @@ function renderKeep(){
   render(true);
 }
 function afterRender(){
+  { const t = app.querySelector('.mweek .mcol.today'); if(t && !S.mScrolled){ const w = t.closest('.mweek'); w.scrollLeft = t.offsetLeft - w.offsetLeft; S.mScrolled = 1; } }
   if(!AUTH.pass) return;
   if(stamp()){ saveLocal(); scheduleSync(); }
 }
@@ -2032,7 +2086,7 @@ window.addEventListener('wheel', e => {
 if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // автообновление: при открытии приложения проверяем, не вышла ли новая версия, и сразу подтягиваем её
-const APP_V = 'v34';
+const APP_V = 'v35';
 async function checkUpdate(){
   try{
     const r = await fetch('./?u='+Date.now(), {cache:'no-store'}); const txt = await r.text();
