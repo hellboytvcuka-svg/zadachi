@@ -447,7 +447,7 @@ html,body{background:#07080b}
 .sft{flex:1;min-width:0;text-align:left;font-size:14px;line-height:1.3}
 .sfpick{flex:none;height:32px;padding:0 10px;border-radius:16px;border:1px solid var(--gb);font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
 .sfpick:hover{border-color:var(--acc);color:var(--ink)}
-@media (max-width:899px){ nav{grid-template-columns:repeat(7,1fr)!important} nav button{font-size:9px!important} }
+@media (max-width:899px){ nav{grid-template-columns:repeat(8,1fr)!important} nav button{font-size:8.5px!important;letter-spacing:-.1px} nav button svg{width:20px!important;height:20px!important} }
 @media (max-width:360px){ nav button{font-size:0!important} }
 @media (min-width:900px){ .spbar,.sfseg{max-width:520px} .sfcol{min-height:calc(100vh - 330px)} }
 /* v14: iOS 26, приложение с экрана «Домой» — система даёт странице экран короче на высоту строки статуса,
@@ -560,6 +560,7 @@ const I = {
   tCal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   tSf:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3.5" y="4" width="7.5" height="16" rx="2"/><rect x="13" y="4" width="7.5" height="16" rx="2"/></svg>',
   tGoals:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>',
+  tMeet:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
   tArt:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18M9 4l3 16M15 4l-3 16"/></svg>'
 };
 
@@ -992,9 +993,34 @@ function dayBlock(key, num, name, sub, list, kind){
       const meta = [(t.time && isCall(t) ? '📞 ' : '')+(t.time||''), kind==='late' ? chip(t.date).text : '', tg(t)].filter(Boolean).join(' · ');
       html += '<div class="wrow '+(t.done?'isdone':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta||t.sp?'<span class="meta">'+spTag(t)+h(meta)+'</span>':'')+'</button><span class="dot" style="background:'+qc(quad(t))+'"></span></div>';
     }
+    if(addV) html += '<button class="addrow" data-a="addtask" data-v="'+addV+'">'+I.plus+'Добавить на этот день</button>';
     html += '</div>';
   }
   return html + '</section>';
+}
+// ===== вкладка «Встречи»: только созвоны и встречи =====
+const MEET_RE = /(встреч|созвон|позвон|звонок|звонк|митинг|переговор|собеседов|📞)/i;
+const isMeet = t => t.meet === true || isCall(t) || (t.meet !== false && MEET_RE.test(t.t || ''));
+function viewMeet(){
+  const all = S.tasks.filter(isMeet);
+  const open = all.filter(t => !t.done), byT = (a,b) => String(a.time||'99').localeCompare(String(b.time||'99'));
+  const row = t => { const c = chip(t.date);
+    return '<div class="wrow mrowm '+(t.done?'isdone':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span><span class="meta">'+spTag(t)+h([t.time ? (isCall(t)?'📞 ':'🤝 ')+t.time : 'время не указано', c && c.late && !t.done ? c.text : ''].filter(Boolean).join(' · '))+'</span></button>'+(t.time && !t.done && t.date === addD(0) && isCall(t) ? '<button class="linkb" data-a="alrun" title="Поставить будильник">⏰</button>' : '')+'</div>'; };
+  const group = (title, list, sub) => list.length ? '<section class="day glass open"><div class="dayhead"><div class="dayrow" style="cursor:default"><span class="dname" style="flex:1"><b>'+h(title)+'</b>'+(sub?'<small>'+h(sub)+'</small>':'')+'</span><span class="cnt">'+list.length+'</span></div></div><div class="dlist">'+list.sort(byT).map(row).join('')+'</div></section>' : '';
+  let html = '<button class="addbtn glass" data-a="addtask" data-v="m'+addD(0)+'">'+I.plus+'Добавить встречу или созвон</button><div class="week">';
+  const late = open.filter(t => t.date && diff(t.date) < 0);
+  html += group('Пропущено', late, 'дата прошла, а не отмечено');
+  for(let i=0;i<14;i++){
+    const d = addD(i), dt = pd(d), list = open.filter(t => t.date === d);
+    html += group(i===0 ? 'Сегодня' : i===1 ? 'Завтра' : WDF[dt.getDay()], list, dt.getDate()+' '+MON[dt.getMonth()]);
+  }
+  const later = open.filter(t => t.date && diff(t.date) >= 14).sort((a,b) => a.date.localeCompare(b.date));
+  html += group('Позже', later, '');
+  html += group('Без даты', open.filter(t => !t.date), '');
+  if(!open.length) html += '<div class="empty" style="text-align:center;padding:24px">Встреч и созвонов пока нет.<br>Напиши в чат, например: «созвон с Линаром завтра в 15:00» или «встреча с хозяйкой в пятницу 18:00».</div>';
+  const done = all.filter(t => t.done && showDone(t));
+  html += group('Прошедшие', done, '');
+  return html + '</div>';
 }
 function viewWeek(){
   let html = ctxStrip() + spBar() + '<div class="week">';
@@ -1179,6 +1205,7 @@ function taskSheet(t){
     '</div><div class="dateexact"><span class="meta">или точная дата</span><input class="inp" type="date" id="tdate" data-tid="'+t.id+'" value="'+h(t.date||'')+'">'+
     '</div><span class="lbl">Сфера</span><div class="grid2">'+['work','life'].map(k => '<button class="opt '+(t.sp===k?'on':'')+'" data-a="setsp" data-v="'+t.id+':'+k+'"><span class="dot" style="background:'+SP[k].c+'"></span>'+SP[k].label+'</button>').join('')+'</div>'+
     field('Время','<input class="inp" type="time" id="ttime" data-tid="'+t.id+'" value="'+h(t.time||'')+'">')+
+    '<button class="opt '+(isMeet(t)?'on':'')+'" data-a="meett" data-v="'+t.id+'">🤝 '+(isMeet(t)?'Во вкладке «Встречи»':'Показывать во вкладке «Встречи»')+'</button>'+
     '<button class="opt '+(isCall(t)?'on':'')+'" data-a="callt" data-v="'+t.id+'">📞 '+(isCall(t)?'Созвон — будильник за '+ALARM_LEAD+' мин':'Отметить как созвон')+'</button>'+
     (isCall(t) && t.time && !t.done ? '<button class="opt" data-a="alrun">⏰ Поставить будильник на '+alarmAt(t.time)+'</button>' : '')+
     field('Цель','<select class="inp" id="tgoal" data-tid="'+t.id+'">'+goalOptions(t.gid)+'</select>')+
@@ -1227,9 +1254,9 @@ function viewSheet(){
 }
 
 // ===== рендер =====
-const TITLES = {chat:'Чат', matrix:'Матрица', week:'Неделя', cal:'Календарь', sf:'Сферы', goals:'Цели', art:'Артефакты'};
-const TABS = [['matrix','Матрица',I.tMatrix],['chat','Чат',I.tChat],['week','Неделя',I.tWeek],['cal','Календарь',I.tCal],['sf','Сферы',I.tSf],['goals','Цели',I.tGoals],['art','Артефакты',I.tArt]];
-const VIEWS = {sf:viewSf, chat:viewChat, matrix:viewMatrix, week:viewWeek, cal:viewCal, goals:viewGoals, art:viewArt};
+const TITLES = {meet:'Встречи', chat:'Чат', matrix:'Матрица', week:'Неделя', cal:'Календарь', sf:'Сферы', goals:'Цели', art:'Артефакты'};
+const TABS = [['matrix','Матрица',I.tMatrix],['chat','Чат',I.tChat],['week','Неделя',I.tWeek],['cal','Календарь',I.tCal],['meet','Встречи',I.tMeet],['sf','Сферы',I.tSf],['goals','Цели',I.tGoals],['art','Артефакты',I.tArt]];
+const VIEWS = {meet:viewMeet, sf:viewSf, chat:viewChat, matrix:viewMatrix, week:viewWeek, cal:viewCal, goals:viewGoals, art:viewArt};
 const app = document.getElementById('app');
 function chatBottom(){ const c = app.querySelector('main.chatmode .chat'); if(c) c.scrollTop = c.scrollHeight; const m = app.querySelector('main'); if(m && !c) m.scrollTop = m.scrollHeight; }
 let toastTimer = null;
@@ -1347,7 +1374,7 @@ app.addEventListener('click', e => {
     case 'close': S.sheet = null; break;
     case 'tab': S.tab = v; S.sheet = null; keep = false; if(v==='chat') S.scrollChat = true; break;
     case 'trackeropen': setTimeout(loadAlarmStatus, 50); S.sheet = {type:'tracker'}; refreshTgStatus(); break;
-    case 'addtask': S.sheet = v[0] === 'q' ? {type:'add', q:v.slice(1), date:'', sp:S.spf!=='all'?S.spf:''} : v[0] === 's' ? {type:'add', q:'auto', date:'', sp:v.slice(1,5), imp:v.slice(5)==='1'} : {type:'add', q:'auto', date:v.slice(1), sp:S.spf!=='all'?S.spf:''}; break;
+    case 'addtask': if(v[0] === 'm'){ S.sheet = {type:'add', q:'auto', date:v.slice(1), sp:'', meet:1}; break; } S.sheet = v[0] === 'q' ? {type:'add', q:v.slice(1), date:'', sp:S.spf!=='all'?S.spf:''} : v[0] === 's' ? {type:'add', q:'auto', date:'', sp:v.slice(1,5), imp:v.slice(5)==='1'} : {type:'add', q:'auto', date:v.slice(1), sp:S.spf!=='all'?S.spf:''}; break;
     case 'latetoday': { let n = 0; S.tasks.forEach(x => { if(!x.done && x.date && diff(x.date) < 0 && (S.spf === 'all' || x.sp === S.spf)){ x.date = addD(0); x.dEd = 1; n++; } }); toast('Перенёс на сегодня: '+n); break; }
     case 'archper': S.openPer = S.openPer || {}; S.openPer[v] = !S.openPer[v]; break;
     case 'goalcarry': { const g = goalById(v); if(!g) break; if(S.goals.some(x => x.carry === g.id)){ toast('Уже перенесена'); break; } const ng = Object.assign(G(g.level, g.t, g.p, '', g.kw), {imp: g.imp, carry: g.id}); S.goals.push(ng); toast('Перенёс в '+perLabel(g.level, ng.per)); break; }
@@ -1369,10 +1396,11 @@ app.addEventListener('click', e => {
     case 'reviewlater': S.settings.lastReview = curMonth(); break;
     case 'theme': S.theme = S.theme === 'calm' ? 'dopa' : 'calm'; try{ localStorage.setItem('zd_theme', S.theme); }catch(e){} break;
     case 'ctx': S.ctx = S.ctx === v ? null : v; break;
-    case 'toggle': if(t){ t.done = !t.done; if(t.done) t.doneAt = Date.now(); else delete t.doneAt; pushDone(t); } if(el.dataset.close) S.sheet = null; break;
+    case 'toggle': if(t){ t.done = !t.done; if(t.done) t.doneAt = Date.now(); else delete t.doneAt; if(t.src){ const L = S.settings.trDone = (S.settings.trDone||[]).filter(x => x !== t.src); if(t.done){ L.push(t.src); S.settings.trDone = L.slice(-500); } } pushDone(t); } if(el.dataset.close) S.sheet = null; break;
     case 'open': S.sheet = {type:'task', id:v}; break;
     case 'editin': S.editIn = v; break;
     case 'pin': t.pinned = !t.pinned; break;
+    case 'meett': t.meet = !isMeet(t); break;
     case 'callt': t.call = !isCall(t); if(t.call && t.time && !t.date) t.date = addD(0); break;
     case 'alrun': render(true); runAlarms(); return;
     case 'alauto': try{ localStorage.setItem('zd_autoalarm', autoAlarmOn() ? '0' : '1'); }catch(e){} break;
@@ -1440,6 +1468,7 @@ app.addEventListener('submit', e => {
     if(val('q') !== 'auto') setQ(t, +val('q'));
     else if(S.sheet && S.sheet.imp !== undefined){ t.imp = !!S.sheet.imp; t.qfix = 1; }
     t.sp = val('sp') || (S.sheet && S.sheet.sp) || '';
+    if(S.sheet && S.sheet.meet) t.meet = true;
     S.tasks.push(t);
     if(t.date) S.open.add('d'+diff(t.date));
     S.sheet = null; toast('Добавлено: '+Q[quad(t)].label.toLowerCase()); render(true); return;
@@ -1675,10 +1704,19 @@ async function syncTracker(manual){
       for(const card of col.cards || []){
         const q = cardQuad(card.title);
         for(const it of card.items || []){
-          const src = 'tr_'+it.id, done = !!it.done;
-          const ex = S.tasks.find(t => t.src === src);
-          if(ex){ if(!ex.tEd) ex.t = it.text; if(!ex.dEd) ex.date = it.deadline || null; ex.done = done; continue; } // правки руками трекер не перетирает
-          if(done || st.trIgnored.includes(src) || S.tomb.tasks.some(x => x.src === src)) continue;
+          const src = 'tr_'+it.id;
+          // выполнено в трекере: флажок, галочка ✅ в тексте или карточка «готово/выполнено»
+          const done = !!it.done || /✅|✔|☑/.test(it.text || '') || /готов|выполн|сделан|архив|done/i.test(card.title || '');
+          const ex = S.tasks.find(t => t.src === src) || S.tomb.tasks.find(x => x.src === src);
+          if(ex && ex.del) continue; // удалена у меня — не возвращаем
+          if(ex){
+            if(!ex.tEd) ex.t = it.text;
+            if(!ex.dEd) ex.date = it.deadline || null;
+            if(done && !ex.done){ ex.done = true; ex.doneAt = Date.now(); }
+            else if(!done && ex.done && ex.col === S.tracker.me && ex.doneAt && Date.now() - ex.doneAt < 864e5*30) pushDone(ex, true); // у меня выполнено, в трекере ещё нет — дотолкнуть
+            continue; // моя отметка «выполнено» трекером больше не снимается
+          }
+          if(done || st.trIgnored.includes(src) || st.trDone && st.trDone.includes(src)) continue;
           const auto = parse(it.text);
           const t = T(it.text, Object.assign(auto, {date: it.deadline || auto.date, src, col: col.name, from: col.name+' · '+card.title}));
           if(q) setQ(t, q);
@@ -1700,8 +1738,9 @@ async function syncTracker(manual){
   tr.busy = false; render(true);
 }
 let trQueue = Promise.resolve();
-function pushDone(t){
+function pushDone(t, silent){
   if(!t || !t.src || t.col !== S.tracker.me) return;
+  if(silent){ const itemId = t.src.slice(3); trQueue = trQueue.then(() => api('/tracker/done', {method:'POST', body:{me:S.tracker.me, itemId, done:true}}).catch(() => {})); return; }
   const itemId = t.src.slice(3), done = t.done;
   trQueue = trQueue.then(async () => {
     try{
@@ -1993,7 +2032,7 @@ window.addEventListener('wheel', e => {
 if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // автообновление: при открытии приложения проверяем, не вышла ли новая версия, и сразу подтягиваем её
-const APP_V = 'v33';
+const APP_V = 'v34';
 async function checkUpdate(){
   try{
     const r = await fetch('./?u='+Date.now(), {cache:'no-store'}); const txt = await r.text();
