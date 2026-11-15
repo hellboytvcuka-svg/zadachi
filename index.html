@@ -584,6 +584,10 @@ html.sa:not(:has(#app.kb)) body{position:static!important;height:auto!important;
 .sadd input{font-size:14.5px}
 .aisub{height:42px;border-radius:21px;border:1px dashed rgba(217,194,160,.5);color:var(--acc);font-size:14px}
 @media (max-width:899px){ .subadd input,.sadd input,.sedit{font-size:16px!important} }
+.wrow[data-id]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.wrow.dragsrc{opacity:.35}
+.day{transition:border-color .15s,background .15s}
+.day.drop{border-color:var(--acc)!important;background:rgba(217,194,160,.12)!important}
 .dateexact{display:flex;align-items:center;gap:10px;margin-top:-2px}
 .dateexact .meta{white-space:nowrap}
 .dateexact .inp{flex:1;height:40px}
@@ -1104,7 +1108,8 @@ function dayBlock(key, num, name, sub, list, kind){
   const open = !blank && S.open.has(key);
   const left = list.filter(t => !t.done).length;
   const cls = ['day','glass', open?'open':'', blank?'blank':'', kind==='today'?'today':''].join(' ');
-  let html = '<section class="'+cls+'">';
+  const dropD = key === 'none' ? 'none' : key.startsWith('d') ? addD(+key.slice(1)) : '';
+  let html = '<section class="'+cls+'"'+(dropD ? ' data-date="'+dropD+'" data-key="'+key+'"' : '')+'>';
   const addV = key === 'none' ? 'd' : key.startsWith('d') ? 'd'+addD(+key.slice(1)) : '';
   html += '<div class="dayhead">';
   html += '<button class="dayrow" '+(blank?(addV?'data-a="addtask" data-v="'+addV+'"':'disabled'):'data-a="day" data-v="'+key+'"')+'>'+
@@ -1117,7 +1122,7 @@ function dayBlock(key, num, name, sub, list, kind){
     html += '<div class="dlist">';
     for(const t of list){
       const meta = [(t.time && isCall(t) ? '📞 ' : '')+(t.time||''), kind==='late' ? chip(t.date).text : '', tg(t)].filter(Boolean).join(' · ');
-      html += '<div class="wrow '+(t.done?'isdone':'')+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta||t.sp||t.subs?'<span class="meta">'+spTag(t)+subChip(t)+h(meta)+'</span>':'')+'</button>'+subExp(t)+'<span class="dot" style="background:'+qc(quad(t))+'"></span></div>'+subsBlock(t);
+      html += '<div class="wrow '+(t.done?'isdone':'')+'" data-id="'+t.id+'">'+chk(t)+'<button class="wt" data-a="open" data-v="'+t.id+'"><span class="tt">'+h(t.t)+'</span>'+(meta||t.sp||t.subs?'<span class="meta">'+spTag(t)+subChip(t)+h(meta)+'</span>':'')+'</button>'+subExp(t)+'<span class="dot" style="background:'+qc(quad(t))+'"></span></div>'+subsBlock(t);
     }
     if(addV) html += '<button class="addrow" data-a="addtask" data-v="'+addV+'">'+I.plus+'Добавить на этот день</button>';
     html += '</div>';
@@ -1154,13 +1159,13 @@ function viewWeek(){
   let html = ctxStrip() + spBar() + (nm || S.settings.hideMeet ? '<div class="donebar"><button data-a="hidemeet">📞 Созвоны и встречи: <b>'+(S.settings.hideMeet ? 'скрыты' : 'видны')+'</b>'+(S.settings.hideMeet && nm ? ' · скрыто '+nm : '')+'<span class="dm-next">'+(S.settings.hideMeet ? 'показать' : 'скрыть')+'</span></button></div>' : '') + '<div class="week">';
   const late = VTW().filter(t => t.date && diff(t.date) < 0 && !t.done);
   if(late.length) html += dayBlock('late', I.alert, 'Просрочено', '', late, 'late');
+  html += dayBlock('none','—','Без даты','',VTW().filter(t => !t.date),'');
   for(let i=0;i<7;i++){
     const d = addD(i), dt = pd(d);
     const name = i===0 ? 'Сегодня' : i===1 ? 'Завтра' : WDF[dt.getDay()];
     const sub = (i<2 ? WDF[dt.getDay()].toLowerCase()+', ' : '') + dt.getDate()+' '+MON[dt.getMonth()];
     html += dayBlock('d'+i, dt.getDate(), name, sub, VTW().filter(t => t.date === d), i===0?'today':'');
   }
-  html += dayBlock('none','—','Без даты','',VTW().filter(t => !t.date),'');
   return html + '</div>';
 }
 
@@ -1776,7 +1781,7 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape' && S.sheet){ S
 let drag = null;
 app.addEventListener('pointerdown', e => {
   if(e.button > 0) return;
-  const row = e.target.closest('.mrow'); if(!row || e.target.closest('.chk') || e.target.closest('.sexp')) return;
+  const row = e.target.closest('.mrow, .wrow[data-id]'); if(!row || e.target.closest('.chk') || e.target.closest('.sexp')) return;
   drag = {id:row.dataset.id, row, sx:e.clientX, sy:e.clientY, x:e.clientX, y:e.clientY, active:false, touch:e.pointerType !== 'mouse'};
   if(drag.touch) drag.timer = setTimeout(() => { if(drag && !drag.active) startDrag(); }, 300);
 });
@@ -1795,6 +1800,10 @@ function moveDrag(x, y){
   app.querySelectorAll('.quad.drop').forEach(n => { if(n !== q) n.classList.remove('drop'); });
   if(q) q.classList.add('drop');
   drag.q = q ? +q.dataset.q : null;
+  const dd = el && el.closest('.day[data-date]');
+  app.querySelectorAll('.day.drop').forEach(n => { if(n !== dd) n.classList.remove('drop'); });
+  if(dd) dd.classList.add('drop');
+  drag.date = dd ? dd.dataset.date : null; drag.dkey = dd ? dd.dataset.key : null;
   const main = app.querySelector('main'), mr = main.getBoundingClientRect();
   if(y < mr.top + 50) main.scrollTop -= 10; else if(y > mr.bottom - 50) main.scrollTop += 10;
 }
@@ -1815,7 +1824,15 @@ function endDrag(drop){
   if(drag.active){
     dragEnd = Date.now(); drag.gh.remove();
     const t = find(drag.id);
-    if(drop && t && drag.imp !== null && drag.imp !== undefined && drag.imp !== !!t.imp){ const u = quad(t) === 1 || quad(t) === 3; setQ(t, drag.imp ? (u ? 1 : 2) : (u ? 3 : 4)); }
+    if(drop && t && drag.date){
+      const nd = drag.date === 'none' ? null : drag.date;
+      if(nd !== (t.date || null)){
+        t.date = nd; t.dEd = 1; t.manual = 1; t.urg = null;
+        if(drag.dkey) S.open.add(drag.dkey);
+        const c = chip(t.date); toast(t.date ? 'Перенёс на '+(c ? c.text : t.date) : 'Убрал дату');
+      }
+    }
+    else if(drop && t && drag.imp !== null && drag.imp !== undefined && drag.imp !== !!t.imp){ const u = quad(t) === 1 || quad(t) === 3; setQ(t, drag.imp ? (u ? 1 : 2) : (u ? 3 : 4)); }
     else if(drop && drag.q && t && drag.q !== quad(t)) setQ(t, drag.q);
     drag = null; render(true); return;
   }
@@ -1823,7 +1840,7 @@ function endDrag(drop){
 }
 document.addEventListener('pointerup', () => endDrag(true));
 document.addEventListener('pointercancel', () => endDrag(false));
-document.addEventListener('contextmenu', e => { if(e.target.closest('.mrow')) e.preventDefault(); });
+document.addEventListener('contextmenu', e => { if(e.target.closest('.mrow, .wrow[data-id]')) e.preventDefault(); });
 
 // ===== разбор месяца (в рабочей версии бот запускает его сам 1-го числа) =====
 const curMonth = () => TODAY.getFullYear()+'-'+String(TODAY.getMonth()+1).padStart(2,'0');
@@ -2272,7 +2289,7 @@ window.addEventListener('wheel', e => {
 if(navigator.standalone && window.innerWidth <= 500) document.documentElement.classList.add('sa');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 // автообновление: при открытии приложения проверяем, не вышла ли новая версия, и сразу подтягиваем её
-const APP_V = 'v39';
+const APP_V = 'v40';
 async function checkUpdate(){
   try{
     const r = await fetch('./?u='+Date.now(), {cache:'no-store'}); const txt = await r.text();
